@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --background: 39 25% 98%; /* #FEF7F0 */
+  --foreground: 0 0% 18%; /* #2D2D2D */
+  --muted: 0 0% 96%; /* #F5F5F5 */
+  --muted-foreground: 0 0% 44%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 18%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 352 69% 86%; /* #F8BBD9 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 358 32% 70%; /* #E8B4B8 */
+  --secondary-foreground: 0 0% 18%;
+  --accent: 358 32% 70%;
+  --accent-foreground: 0 0% 18%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 352 69% 86%;
+  --radius: 0.75rem;
+  
+  /* Custom colors for the beauty salon theme */
+  --rose-primary: 352 69% 86%; /* #F8BBD9 */
+  --rose-gold: 358 32% 70%; /* #E8B4B8 */
+  --cream: 39 25% 98%; /* #FEF7F0 */
+  --warm-gray: 0 0% 96%; /* #F5F5F5 */
+  --deep-rose: 358 32% 65%; /* #D4817C */
+  --gold: 35 48% 64%; /* #D4A574 */
+  --charcoal: 0 0% 18%; /* #2D2D2D */
+}
+
+.dark {
+  --background: 0 0% 18%;
+  --foreground: 0 0% 98%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 64%;
+  --popover: 0 0% 18%;
+  --popover-foreground: 0 0% 98%;
+  --card: 0 0% 18%;
+  --card-foreground: 0 0% 98%;
+  --border: 0 0% 24%;
+  --input: 0 0% 24%;
+  --primary: 352 69% 86%;
+  --primary-foreground: 0 0% 18%;
+  --secondary: 0 0% 24%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 0 0% 24%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 352 69% 86%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .font-playfair {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-rose-primary {
+    color: hsl(var(--rose-primary));
+  }
+  
+  .text-rose-gold {
+    color: hsl(var(--rose-gold));
+  }
+  
+  .text-cream {
+    color: hsl(var(--cream));
+  }
+  
+  .text-warm-gray {
+    color: hsl(var(--warm-gray));
+  }
+  
+  .text-deep-rose {
+    color: hsl(var(--deep-rose));
+  }
+  
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+  
+  .text-charcoal {
+    color: hsl(var(--charcoal));
+  }
+
+  .bg-rose-primary {
+    background-color: hsl(var(--rose-primary));
+  }
+  
+  .bg-rose-gold {
+    background-color: hsl(var(--rose-gold));
+  }
+  
+  .bg-cream {
+    background-color: hsl(var(--cream));
+  }
+  
+  .bg-warm-gray {
+    background-color: hsl(var(--warm-gray));
+  }
+  
+  .bg-deep-rose {
+    background-color: hsl(var(--deep-rose));
+  }
+  
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+  
+  .bg-charcoal {
+    background-color: hsl(var(--charcoal));
+  }
+
+  .border-rose-primary {
+    border-color: hsl(var(--rose-primary));
+  }
+  
+  .border-rose-gold {
+    border-color: hsl(var(--rose-gold));
+  }
+  
+  .border-deep-rose {
+    border-color: hsl(var(--deep-rose));
+  }
+
+  .hover\:bg-rose-primary:hover {
+    background-color: hsl(var(--rose-primary));
+  }
+  
+  .hover\:bg-rose-gold:hover {
+    background-color: hsl(var(--rose-gold));
+  }
+  
+  .hover\:bg-deep-rose:hover {
+    background-color: hsl(var(--deep-rose));
+  }
+
+  .hover\:text-rose-primary:hover {
+    color: hsl(var(--rose-primary));
+  }
+  
+  .hover\:text-rose-gold:hover {
+    color: hsl(var(--rose-gold));
+  }
+  
+  .hover\:text-deep-rose:hover {
+    color: hsl(var(--deep-rose));
+  }
+
+  .hover\:border-rose-primary:hover {
+    border-color: hsl(var(--rose-primary));
+  }
+}
