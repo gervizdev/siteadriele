@@ -9,6 +9,8 @@ import {
   type ContactMessage,
   type InsertContactMessage
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Services
@@ -26,105 +28,58 @@ export interface IStorage {
   getContactMessages(): Promise<ContactMessage[]>;
 }
 
-export class MemStorage implements IStorage {
-  private services: Map<number, Service>;
-  private appointments: Map<number, Appointment>;
-  private contactMessages: Map<number, ContactMessage>;
-  private currentServiceId: number;
-  private currentAppointmentId: number;
-  private currentContactMessageId: number;
-
-  constructor() {
-    this.services = new Map();
-    this.appointments = new Map();
-    this.contactMessages = new Map();
-    this.currentServiceId = 1;
-    this.currentAppointmentId = 1;
-    this.currentContactMessageId = 1;
-    
-    // Initialize default services
-    this.initializeDefaultServices();
-  }
-
-  private initializeDefaultServices() {
-    const defaultServices: InsertService[] = [
-      {
-        name: "Clássico",
-        description: "Extensão fio a fio para um look natural e elegante. Perfeito para o dia a dia.",
-        price: 12000, // R$ 120.00 in cents
-        duration: 120, // 2 hours
-      },
-      {
-        name: "Volume",
-        description: "Técnica 2D-3D para mais volume e densidade. Ideal para ocasiões especiais.",
-        price: 18000, // R$ 180.00 in cents
-        duration: 150, // 2.5 hours
-      },
-      {
-        name: "Mega Volume",
-        description: "Técnica 4D-6D para máximo volume e impacto. Look dramático e glamouroso.",
-        price: 25000, // R$ 250.00 in cents
-        duration: 180, // 3 hours
-      },
-    ];
-
-    defaultServices.forEach(service => {
-      const id = this.currentServiceId++;
-      const serviceWithId: Service = { ...service, id };
-      this.services.set(id, serviceWithId);
-    });
-  }
-
+export class DatabaseStorage implements IStorage {
   async getServices(): Promise<Service[]> {
-    return Array.from(this.services.values());
+    return await db.select().from(services);
   }
 
   async getService(id: number): Promise<Service | undefined> {
-    return this.services.get(id);
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service || undefined;
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
-    const id = this.currentAppointmentId++;
-    const appointment: Appointment = {
-      ...insertAppointment,
-      id,
-      createdAt: new Date(),
-    };
-    this.appointments.set(id, appointment);
+    const [appointment] = await db
+      .insert(appointments)
+      .values(insertAppointment)
+      .returning();
     return appointment;
   }
 
   async getAppointments(): Promise<Appointment[]> {
-    return Array.from(this.appointments.values());
+    return await db.select().from(appointments);
   }
 
   async getAppointmentsByDate(date: string): Promise<Appointment[]> {
-    return Array.from(this.appointments.values()).filter(
-      appointment => appointment.date === date
-    );
+    return await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.date, date));
   }
 
   async isTimeSlotAvailable(date: string, time: string): Promise<boolean> {
-    const existingAppointment = Array.from(this.appointments.values()).find(
-      appointment => appointment.date === date && appointment.time === time
+    const existingAppointments = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.date, date));
+    
+    const timeSlotTaken = existingAppointments.some(
+      appointment => appointment.time === time
     );
-    return !existingAppointment;
+    return !timeSlotTaken;
   }
 
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
-    const id = this.currentContactMessageId++;
-    const message: ContactMessage = {
-      ...insertMessage,
-      id,
-      createdAt: new Date(),
-    };
-    this.contactMessages.set(id, message);
+    const [message] = await db
+      .insert(contactMessages)
+      .values(insertMessage)
+      .returning();
     return message;
   }
 
   async getContactMessages(): Promise<ContactMessage[]> {
-    return Array.from(this.contactMessages.values());
+    return await db.select().from(contactMessages);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
