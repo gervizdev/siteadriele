@@ -1,8 +1,15 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAppointmentSchema, insertContactMessageSchema } from "@shared/schema";
 import { z } from "zod";
+
+// Extend Express Request type to include session
+declare module "express-session" {
+  interface SessionData {
+    isAuthenticated?: boolean;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all services
@@ -113,13 +120,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple authentication for admin panel
+  // Simple in-memory authentication for admin panel
+  let isAdminAuthenticated = false;
+
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
     
     // Simple authentication - you can change these credentials
     if (username === "admin" && password === "bellalashes2024") {
-      req.session.isAuthenticated = true;
+      isAdminAuthenticated = true;
       res.json({ message: "Login successful" });
     } else {
       res.status(401).json({ message: "Credenciais inválidas" });
@@ -128,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Check authentication status
   app.get("/api/auth/check", async (req, res) => {
-    if (req.session.isAuthenticated) {
+    if (isAdminAuthenticated) {
       res.json({ authenticated: true });
     } else {
       res.status(401).json({ authenticated: false });
@@ -137,9 +146,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Logout
   app.post("/api/auth/logout", async (req, res) => {
-    req.session.destroy(() => {
-      res.json({ message: "Logout successful" });
-    });
+    isAdminAuthenticated = false;
+    res.json({ message: "Logout successful" });
   });
 
   const httpServer = createServer(app);
