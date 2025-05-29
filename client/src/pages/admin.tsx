@@ -10,7 +10,11 @@ import type { Appointment, ContactMessage, AvailableSlot } from "@shared/schema"
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule">("appointments");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    return today.toISOString().split('T')[0];
+  });
   const [newSlotTime, setNewSlotTime] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -316,7 +320,11 @@ export default function AdminPanel() {
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={(() => {
+                      const today = new Date();
+                      today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+                      return today.toISOString().split('T')[0];
+                    })()}
                     className="w-full"
                   />
                 </div>
