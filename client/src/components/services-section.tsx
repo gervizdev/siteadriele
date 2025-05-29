@@ -101,14 +101,16 @@ export default function ServicesSection() {
                 let IconComponent;
                 const category = service.category.toLowerCase();
 
-                if (category.includes("sobrancelha")) {
+                if (category in serviceIcons) {
+                  IconComponent = serviceIcons[category as keyof typeof serviceIcons];
+                } else if (category.includes("sobrancelha")) {
                   IconComponent = sobrancelhaIcon;
                 } else if (category.includes("cílios") || category.includes("cilios")) {
                   IconComponent = ciliosIcon;
                 } else if (category.includes("buço") || category.includes("buco")) {
                   IconComponent = faceIcon;
                 } else {
-                  IconComponent = serviceIcons[category] || Eye;
+                  IconComponent = Eye;
                 }
 
                 return (
@@ -124,7 +126,7 @@ export default function ServicesSection() {
                       )}
                     </div>
                     <h4 className="font-playfair text-xl font-semibold text-charcoal mb-4">{service.name}</h4>
-                    <p className="text-gray-600 mb-6">{service.description}</p>
+                    <p className="text-gray-600 mb-2">{service.description}</p>
                     <div className="flex justify-end">
                       <button 
                         onClick={scrollToBooking}

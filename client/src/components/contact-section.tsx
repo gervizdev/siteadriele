@@ -9,9 +9,13 @@ import { MapPin, Phone, Mail, Instagram, Facebook, MessageCircle, Star } from "l
 
 const contactSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  phone: z.string().min(8, "Telefone inválido").optional().or(z.literal("")),
   message: z.string().min(10, "Mensagem deve ter pelo menos 10 caracteres"),
   rating: z.number().min(1, "Dê uma nota").max(5, "Nota máxima é 5"),
+}).refine((data) => data.email || data.phone, {
+  message: "Preencha email ou telefone",
+  path: ["email"],
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -30,21 +34,25 @@ export default function ContactSection() {
     },
     onSuccess: () => {
       toast({
-        title: "Mensagem enviada!",
-        description: "Sua mensagem foi enviada com sucesso. Responderemos em breve.",
+        title: "Avaliação enviada!",
+        description: "Sua Avaliação foi enviada com sucesso. Muito Obrigado por compartilhar sua experiencia.",
       });
       reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao enviar mensagem",
-        description: error.message || "Ocorreu um erro ao enviar sua mensagem.",
+        title: "Erro ao enviar avaliação",
+        description: error.message || "Ocorreu um erro ao enviar sua avaliação.",
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: ContactFormData) => {
+    if (!data.email && !data.phone) {
+      toast({ title: "Preencha email ou telefone", variant: "destructive" });
+      return;
+    }
     sendMessageMutation.mutate(data);
   };
 
@@ -131,7 +139,7 @@ export default function ContactSection() {
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8">
-            <h3 className="font-playfair text-2xl font-bold mb-6">Envie uma Mensagem</h3>
+            <h3 className="font-playfair text-2xl font-bold mb-6">Envie uma Avaliação</h3>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div>
                 <input 
@@ -153,6 +161,17 @@ export default function ContactSection() {
                 />
                 {errors.email && (
                   <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
+                )}
+              </div>
+              <div>
+                <input 
+                  type="tel" 
+                  {...register("phone")}
+                  placeholder="Seu telefone" 
+                  className="w-full p-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:border-rose-primary"
+                />
+                {errors.phone && (
+                  <p className="text-red-400 text-sm mt-1">{errors.phone.message}</p>
                 )}
               </div>
               <div>
@@ -196,7 +215,7 @@ export default function ContactSection() {
                 disabled={sendMessageMutation.isPending}
                 className="w-full bg-rose-primary text-white py-4 rounded-xl font-semibold hover:bg-rose-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {sendMessageMutation.isPending ? "Enviando..." : "Enviar Mensagem"}
+                {sendMessageMutation.isPending ? "Enviando..." : "Enviar Avaliação"}
               </button>
             </form>
           </div>

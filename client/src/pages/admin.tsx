@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2, Edit2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { Appointment, ContactMessage, AvailableSlot } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import BookingSection from "@/components/booking-section";
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule">("appointments");
@@ -16,6 +18,9 @@ export default function AdminPanel() {
     return today.toISOString().split('T')[0];
   });
   const [newSlotTime, setNewSlotTime] = useState("");
+  const [deleteType, setDeleteType] = useState<null | { type: 'appointment' | 'message', id: number }>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editingReview, setEditingReview] = useState<ContactMessage | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -80,6 +85,33 @@ export default function AdminPanel() {
         description: "Falha ao remover horário. Tente novamente.",
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/appointments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      toast({ title: "Agendamento excluído", description: "Agendamento removido com sucesso." });
+      setDeleteType(null);
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao excluir agendamento.", variant: "destructive" });
+    },
+  });
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/contact/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contact"] });
+      toast({ title: "Mensagem excluída", description: "Mensagem removida com sucesso." });
+      setDeleteType(null);
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao excluir mensagem.", variant: "destructive" });
     },
   });
 
@@ -148,7 +180,7 @@ export default function AdminPanel() {
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                Mensagens de Contato
+                Avaliações
               </button>
               <button
                 onClick={() => setActiveTab("schedule")}
@@ -235,6 +267,25 @@ export default function AdminPanel() {
                         </p>
                       </div>
                     )}
+
+                    <div className="flex gap-2 mt-4 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingAppointment(appointment)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" /> Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteType({ type: 'appointment', id: appointment.id })}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -251,10 +302,62 @@ export default function AdminPanel() {
         {activeTab === "messages" && (
           <div>
             <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6">
-              Mensagens de Contato ({messages?.length || 0})
+              Avaliações ({messages?.length || 0})
             </h2>
-            
-            {messagesLoading ? (
+            {editingReview ? (
+              <div className="mb-8 bg-white rounded-2xl p-6 shadow-sm">
+                <form
+                  onSubmit={async e => {
+                    e.preventDefault();
+                    const form = e.target as HTMLFormElement;
+                    const formData = new FormData(form);
+                    const email = (formData.get("email") as string)?.trim();
+                    const phone = (formData.get("phone") as string)?.trim();
+                    if (!email && !phone) {
+                      toast({ title: "Preencha email ou telefone", variant: "destructive" });
+                      return;
+                    }
+                    const data = {
+                      name: formData.get("name") as string,
+                      email,
+                      phone,
+                      message: formData.get("message") as string,
+                      rating: Number(formData.get("rating")),
+                    };
+                    await apiRequest("PUT", `/api/contact/${editingReview.id}`, data);
+                    toast({ title: "Avaliação atualizada!" });
+                    setEditingReview(null);
+                    queryClient.invalidateQueries({ queryKey: ["/api/contact"] });
+                  }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Nome</label>
+                    <input name="name" defaultValue={editingReview.name} className="w-full border rounded p-2" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Email</label>
+                    <input name="email" defaultValue={editingReview.email} className="w-full border rounded p-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Telefone</label>
+                    <input name="phone" defaultValue={editingReview.phone || ''} className="w-full border rounded p-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Mensagem</label>
+                    <textarea name="message" defaultValue={editingReview.message} className="w-full border rounded p-2" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Nota</label>
+                    <input name="rating" type="number" min={1} max={5} defaultValue={editingReview.rating} className="w-20 border rounded p-2" required />
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button type="submit" className="bg-deep-rose text-white">Salvar</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingReview(null)}>Cancelar</Button>
+                  </div>
+                </form>
+              </div>
+            ) : messagesLoading ? (
               <div className="grid gap-4">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
@@ -276,14 +379,41 @@ export default function AdminPanel() {
                         {new Date(message.createdAt).toLocaleString("pt-BR")}
                       </span>
                     </div>
-                    
                     <div className="flex items-center space-x-2 mb-4">
                       <Mail className="text-deep-rose h-5 w-5" />
                       <span>{message.email}</span>
                     </div>
                     
+                    <div className="flex flex-col md:flex-row md:items-center md:space-x-4 text-gray-600 text-sm mt-2">
+                      {message.email && (
+                        <span className="flex items-center mr-2"><Mail className="w-4 h-4 mr-1" />{message.email}</span>
+                      )}
+                      {message.phone && (
+                        <span className="flex items-center"><Phone className="w-4 h-4 mr-1" />{message.phone}</span>
+                      )}
+                    </div>
+                    
                     <div className="bg-warm-gray rounded-lg p-4">
                       <p className="text-gray-700">{message.message}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-4 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingReview(message)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" /> Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteType({ type: 'message', id: message.id })}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -291,7 +421,7 @@ export default function AdminPanel() {
             ) : (
               <div className="text-center py-12">
                 <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-600">Nenhuma mensagem encontrada</p>
+                <p className="text-gray-600">Nenhuma avaliação encontrada</p>
               </div>
             )}
           </div>
@@ -409,6 +539,29 @@ export default function AdminPanel() {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={!!deleteType} onOpenChange={() => setDeleteType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+          </DialogHeader>
+          <p>Tem certeza que deseja excluir este {deleteType?.type === 'appointment' ? 'agendamento' : 'mensagem'}?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteType(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteType?.type === 'appointment') deleteAppointmentMutation.mutate(deleteType.id);
+                if (deleteType?.type === 'message') deleteMessageMutation.mutate(deleteType.id);
+              }}
+              disabled={deleteAppointmentMutation.isPending || deleteMessageMutation.isPending}
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

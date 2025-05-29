@@ -62,7 +62,20 @@ export default function HeroSection() {
               alt="Extensão de cílios profissional" 
               className="rounded-2xl shadow-2xl w-full h-auto"
             />
-            <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-lg">
+            <div
+              className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-lg cursor-pointer hover:shadow-2xl transition"
+              onClick={() => {
+                const element = document.getElementById('contact');
+                if (element) {
+                  // Detecta se é mobile (largura até 768px)
+                  const isMobile = window.innerWidth <= 768;
+                  const offset = isMobile ? 550 : 0;
+                  const y = element.getBoundingClientRect().top + window.scrollY + offset;
+                  window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+              }}
+              title="Clique para deixar sua avaliação"
+            >
               <div className="flex items-center space-x-3">
                 <div className="bg-rose-primary p-3 rounded-full">
                   <Star className="text-white h-6 w-6" fill="currentColor" />

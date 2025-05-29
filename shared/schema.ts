@@ -7,7 +7,8 @@ export const services = pgTable("services", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   local: text("local").notNull(),
-  category: text("category").notNull(), // <-- adicionado aqui
+  category: text("category").notNull(),
+  price: integer("price").notNull(), // <-- novo campo obrigatório
 });
 
 export const appointments = pgTable("appointments", {
@@ -29,6 +30,7 @@ export const contactMessages = pgTable("contact_messages", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  phone: text("phone"), // <-- novo campo, pode ser null
   message: text("message").notNull(),
   rating: integer("rating").notNull(), // <-- Adicione esta linha
   createdAt: timestamp("created_at").notNull().defaultNow(),

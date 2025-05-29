@@ -107,6 +107,19 @@ export class DatabaseStorage implements IStorage {
     return !timeSlotTaken;
   }
 
+  async updateAppointment(id: number, data: InsertAppointment): Promise<Appointment> {
+    const [updated] = await db
+      .update(appointments)
+      .set(data)
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAppointment(id: number): Promise<void> {
+    await db.delete(appointments).where(eq(appointments.id, id));
+  }
+
   // Contact Messages
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
     const [message] = await db
@@ -118,6 +131,19 @@ export class DatabaseStorage implements IStorage {
 
   async getContactMessages(): Promise<ContactMessage[]> {
     return await db.select().from(contactMessages);
+  }
+
+  async updateContactMessage(id: number, data: InsertContactMessage): Promise<ContactMessage> {
+    const [updated] = await db
+      .update(contactMessages)
+      .set(data)
+      .where(eq(contactMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteContactMessage(id: number): Promise<void> {
+    await db.delete(contactMessages).where(eq(contactMessages.id, id));
   }
 
   // Available Slots Management

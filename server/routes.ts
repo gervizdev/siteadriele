@@ -25,11 +25,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new service
   app.post("/api/services", async (req, res) => {
     try {
-      const { name, description, local, category } = req.body;
-      if (!name || !description || !local || !category) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios" });
+      const { name, description, local, category, price } = req.body;
+      if (!name || !description || !local || !category || typeof price !== "number" || price <= 0) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios e o preço deve ser maior que zero" });
       }
-      const newService = await storage.createService({ name, description, local, category });
+      const newService = await storage.createService({ name, description, local, category, price });
       res.status(201).json(newService);
     } catch (error) {
       res.status(500).json({ message: "Erro ao criar serviço" });
@@ -40,11 +40,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, local, category } = req.body;
-      if (!name || !description || !local || !category) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios" });
+      const { name, description, local, category, price } = req.body;
+      if (!name || !description || !local || !category || typeof price !== "number" || price <= 0) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios e o preço deve ser maior que zero" });
       }
-      const updatedService = await storage.updateService(Number(id), { name, description, local, category });
+      const updatedService = await storage.updateService(Number(id), { name, description, local, category, price });
       res.json(updatedService);
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar serviço" });
@@ -91,7 +91,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       const appointment = await storage.createAppointment(validatedData);
-      res.status(201).json(appointment);
+      res.status(201).json({
+        message: "Agendamento realizado com sucesso",
+        appointment,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
@@ -100,6 +103,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(500).json({ message: "Failed to create appointment" });
+    }
+  });
+
+  // Editar agendamento
+  app.put("/api/appointments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertAppointmentSchema.parse(req.body);
+      const updated = await storage.updateAppointment(Number(id), validatedData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid appointment data",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ message: "Failed to update appointment" });
+    }
+  });
+
+  // Excluir agendamento
+  app.delete("/api/appointments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAppointment(Number(id));
+      res.json({ message: "Agendamento excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir agendamento" });
     }
   });
 
@@ -127,6 +159,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(500).json({ message: "Failed to send contact message" });
+    }
+  });
+
+  // Editar mensagem de contato
+  app.put("/api/contact/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertContactMessageSchema.parse(req.body);
+      const updated = await storage.updateContactMessage(Number(id), validatedData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid contact message data",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({ message: "Failed to update contact message" });
+    }
+  });
+
+  // Excluir mensagem de contato
+  app.delete("/api/contact/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteContactMessage(Number(id));
+      res.json({ message: "Mensagem excluída com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir mensagem" });
     }
   });
 
@@ -202,6 +263,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Slot deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete slot" });
+    }
+  });
+
+  // Rota para buscar depoimentos (testimonials) reais
+  app.get("/api/testimonials", async (req, res) => {
+    try {
+      const messages = await storage.getContactMessages();
+      // Só retorna os campos relevantes para depoimentos
+      const testimonials = messages.map(msg => ({
+        id: msg.id,
+        name: msg.name,
+        message: msg.message,
+        rating: msg.rating,
+        createdAt: msg.createdAt,
+      }));
+      res.json(testimonials);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch testimonials" });
     }
   });
 

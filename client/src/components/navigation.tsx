@@ -17,7 +17,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="font-playfair text-2xl font-bold text-deep-rose">Bella Lashes</h1>
+            <h1 className="font-playfair text-2xl font-bold text-deep-rose">Adriele Lashes</h1>
           </div>
           
           {/* Desktop Navigation */}
@@ -47,6 +47,12 @@ export default function Navigation() {
               >
                 Contato
               </button>
+              <a
+                href="/admin"
+                className="text-charcoal hover:text-deep-rose transition-colors font-semibold"
+              >
+                Painel Administrativo
+              </a>
             </div>
           </div>
 
@@ -89,6 +95,12 @@ export default function Navigation() {
               >
                 Contato
               </button>
+              <a
+                href="/admin"
+                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors font-semibold"
+              >
+                Painel Administrativo
+              </a>
             </div>
           </div>
         )}

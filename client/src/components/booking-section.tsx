@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
@@ -26,12 +26,13 @@ const bookingSchema = z.object({
 
 type BookingFormData = z.infer<typeof bookingSchema>;
 
-export default function BookingSection() {
+export default function BookingSection({ editData, onEditFinish }: { editData?: BookingFormData & { id: number }, onEditFinish?: () => void } = {}) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedLocal, setSelectedLocal] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(!!editData);
   const { toast } = useToast();
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
@@ -61,7 +62,9 @@ export default function BookingSection() {
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return apiRequest("POST", "/api/appointments", data);
+      const response = await apiRequest("POST", "/api/appointments", data);
+      console.log("Resposta da API:", response);
+      return response;
     },
     onSuccess: () => {
       toast({
@@ -83,11 +86,104 @@ export default function BookingSection() {
     },
   });
 
+  // Mutation para editar agendamento
+  const editAppointmentMutation = useMutation({
+    mutationFn: async (data: BookingFormData & { id: number }) => {
+      const response = await apiRequest("PUT", `/api/appointments/${data.id}`, data);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Agendamento atualizado!",
+        description: "O agendamento foi atualizado com sucesso.",
+      });
+      reset();
+      setIsEditing(false);
+      onEditFinish?.();
+      setSelectedDate(undefined);
+      setSelectedService(null);
+      setSelectedTime("");
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao editar",
+        description: error.message || "Ocorreu um erro ao editar o agendamento.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Função para simular pagamento Mercado Pago (substitua pelo real depois)
+  async function handleMercadoPagoPayment() {
+    // Aqui você integraria o checkout do Mercado Pago
+    // Exemplo: abrir modal, redirecionar, etc.
+    // Retorne true se pago, false se não pago
+    // Exemplo fake:
+    return new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        // Simula pagamento aprovado
+        resolve(true);
+      }, 2000);
+    });
+  }
+
+  // Handler do botão de agendamento/edição
+  const handleBookingSubmit = async (data: BookingFormData) => {
+    // Verifica se precisa de adiantamento
+    const isAdiantamento =
+      selectedService &&
+      typeof selectedService.price === "number" &&
+      selectedService.price > 0 &&
+      selectedLocal === "irece" &&
+      (selectedService.category === "cílios" || selectedService.category === "sobrancelha");
+
+    if (isAdiantamento) {
+      toast({ title: "Redirecionando para pagamento..." });
+      const pago = await handleMercadoPagoPayment();
+      if (!pago) {
+        toast({
+          title: "Pagamento não realizado",
+          description: "O agendamento só será confirmado após o pagamento do adiantamento.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    // Se não precisa de adiantamento ou pagamento aprovado, agenda normalmente
+    if (isEditing && editData?.id) {
+      editAppointmentMutation.mutate({ ...data, id: editData.id });
+      return;
+    }
+    onSubmit(data);
+  };
+
   const onSubmit = (data: BookingFormData) => {
+    console.log("Dados enviados:", data);
+    if (!data.servicePrice || data.servicePrice <= 0) {
+      toast({
+        title: "Erro no serviço",
+        description: "O serviço selecionado está sem preço. Escolha outro serviço.",
+        variant: "destructive",
+      });
+      return;
+    }
     createAppointmentMutation.mutate(data);
   };
 
   const handleServiceSelect = (service: Service) => {
+    if (typeof service.price !== "number" || isNaN(service.price) || service.price <= 0) {
+      toast({
+        title: "Serviço inválido",
+        description: "Este serviço não possui preço cadastrado. Por favor, escolha outro.",
+        variant: "destructive",
+      });
+      setSelectedService(null);
+      setValue("serviceId", 0);
+      setValue("serviceName", "");
+      setValue("servicePrice", 0);
+      return;
+    }
     setSelectedService(service);
     setValue("serviceId", service.id);
     setValue("serviceName", service.name);
@@ -125,6 +221,36 @@ export default function BookingSection() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  // Preenche o formulário se for edição
+  useEffect(() => {
+    if (editData) {
+      setIsEditing(true);
+      setSelectedDate(editData.date ? new Date(editData.date) : undefined);
+      setSelectedService({
+        id: editData.serviceId,
+        name: editData.serviceName,
+        price: editData.servicePrice,
+        description: '',
+        category: '',
+        local: '',
+      });
+      setSelectedTime(editData.time);
+      setSelectedLocal(editData.local);
+      setSelectedCategory('');
+      setValue("serviceId", editData.serviceId);
+      setValue("serviceName", editData.serviceName);
+      setValue("servicePrice", editData.servicePrice);
+      setValue("local", editData.local);
+      setValue("date", editData.date);
+      setValue("time", editData.time);
+      setValue("clientName", editData.clientName);
+      setValue("clientPhone", editData.clientPhone);
+      setValue("clientEmail", editData.clientEmail);
+      setValue("isFirstTime", editData.isFirstTime);
+      setValue("notes", editData.notes || "");
+    }
+  }, [editData, setValue]);
+
   return (
     <section id="booking" className="py-20 bg-cream">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -134,7 +260,7 @@ export default function BookingSection() {
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl p-8">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={handleSubmit(handleBookingSubmit)} className="space-y-8">
             
             {/* Categoria de Serviço */}
             <div>
@@ -341,9 +467,10 @@ export default function BookingSection() {
               <div>
                 <label className="block text-sm font-semibold text-charcoal mb-2">Primeira vez?</label>
                 <select 
-                  {...register("isFirstTime", { valueAsNumber: false })}
+                  {...register("isFirstTime")}
                   className="w-full p-4 border border-gray-200 rounded-xl focus:outline-none focus:border-rose-primary transition-colors"
                   onChange={(e) => setValue("isFirstTime", e.target.value === "true")}
+                  value={watch("isFirstTime") ? "true" : "false"}
                 >
                   <option value="true">Sim, primeira vez</option>
                   <option value="false">Não, já sou cliente</option>
@@ -366,11 +493,35 @@ export default function BookingSection() {
             <div className="text-center">
               <button 
                 type="submit" 
-                disabled={createAppointmentMutation.isPending}
+                disabled={createAppointmentMutation.isPending || editAppointmentMutation.isPending}
                 className="bg-deep-rose text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-rose-gold transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {createAppointmentMutation.isPending ? "Agendando..." : "Confirmar Agendamento"}
+                {isEditing
+                  ? (editAppointmentMutation.isPending ? "Salvando..." : "Salvar Alterações")
+                  : createAppointmentMutation.isPending
+                    ? "Agendando..."
+                    : selectedService && typeof selectedService.price === "number" && selectedService.price > 0 && selectedLocal === "irece" && (selectedService.category === "cílios" || selectedService.category === "sobrancelha")
+                      ? `Confirmar Agendamento (Adiantamento: R$ 30,00)`
+                      : selectedService && typeof selectedService.price === "number" && selectedService.price > 0
+                        ? `Confirmar Agendamento (R$ ${(selectedService.price / 100).toFixed(2)})`
+                        : "Confirmar Agendamento"}
               </button>
+              {isEditing && (
+                <button
+                  type="button"
+                  className="ml-4 px-8 py-4 rounded-full border border-gray-300 text-charcoal font-semibold hover:bg-gray-100 transition-all"
+                  onClick={() => {
+                    setIsEditing(false);
+                    reset();
+                    onEditFinish?.();
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              {selectedService && selectedLocal === "irece" && (selectedService.category === "cílios" || selectedService.category === "sobrancelha") && (
+                <p className="text-sm text-gray-600 mt-2">Será cobrado um adiantamento de <span className="font-bold text-rose-primary">R$ 30,00</span>. O valor será descontado do total do serviço no dia do atendimento.</p>
+              )}
             </div>
           </form>
         </div>
