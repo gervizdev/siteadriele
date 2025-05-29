@@ -36,7 +36,14 @@ export default function BookingSection() {
   });
 
   const { data: availableTimes, isLoading: timesLoading } = useQuery({
-    queryKey: ["/api/available-times", selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""],
+    queryKey: ["/api/available-times", selectedDate ? format(selectedDate, "yyyy-MM-dd") : null],
+    queryFn: async () => {
+      if (!selectedDate) return [];
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const response = await fetch(`/api/available-times/${dateStr}`);
+      if (!response.ok) throw new Error('Failed to fetch available times');
+      return response.json();
+    },
     enabled: !!selectedDate,
   });
 
