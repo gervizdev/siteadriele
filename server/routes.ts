@@ -103,6 +103,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contact messages (admin only)
+  app.get("/api/contact", async (req, res) => {
+    try {
+      const messages = await storage.getContactMessages();
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contact messages" });
+    }
+  });
+
+  // Simple authentication for admin panel
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    // Simple authentication - you can change these credentials
+    if (username === "admin" && password === "bellalashes2024") {
+      req.session.isAuthenticated = true;
+      res.json({ message: "Login successful" });
+    } else {
+      res.status(401).json({ message: "Credenciais inválidas" });
+    }
+  });
+
+  // Check authentication status
+  app.get("/api/auth/check", async (req, res) => {
+    if (req.session.isAuthenticated) {
+      res.json({ authenticated: true });
+    } else {
+      res.status(401).json({ authenticated: false });
+    }
+  });
+
+  // Logout
+  app.post("/api/auth/logout", async (req, res) => {
+    req.session.destroy(() => {
+      res.json({ message: "Logout successful" });
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
