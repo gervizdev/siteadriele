@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, User, Mail, Phone, MessageSquare } from "lucide-react";
-import type { Appointment, ContactMessage } from "@shared/schema";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import type { Appointment, ContactMessage, AvailableSlot } from "@shared/schema";
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<"appointments" | "messages">("appointments");
+  const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule">("appointments");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSlotTime, setNewSlotTime] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: appointments, isLoading: appointmentsLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"],
@@ -12,6 +21,62 @@ export default function AdminPanel() {
 
   const { data: messages, isLoading: messagesLoading } = useQuery<ContactMessage[]>({
     queryKey: ["/api/contact"],
+  });
+
+  const { data: slots, isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
+    queryKey: ["/api/admin/slots", selectedDate],
+    enabled: activeTab === "schedule",
+  });
+
+  const createSlotMutation = useMutation({
+    mutationFn: async (data: { date: string; time: string; isAvailable: boolean }) => {
+      const response = await fetch("/api/admin/slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to create slot");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/slots", selectedDate] });
+      setNewSlotTime("");
+      toast({
+        title: "Horário criado",
+        description: "Novo horário disponível criado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao criar horário. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteSlotMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/admin/slots/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete slot");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/slots", selectedDate] });
+      toast({
+        title: "Horário removido",
+        description: "Horário removido com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao remover horário. Tente novamente.",
+        variant: "destructive",
+      });
+    },
   });
 
   const formatDate = (dateStr: string) => {
@@ -25,6 +90,20 @@ export default function AdminPanel() {
 
   const formatPrice = (cents: number) => {
     return `R$ ${(cents / 100).toFixed(0)}`;
+  };
+
+  const handleCreateSlot = () => {
+    if (!newSlotTime) return;
+    
+    createSlotMutation.mutate({
+      date: selectedDate,
+      time: newSlotTime,
+      isAvailable: true,
+    });
+  };
+
+  const handleDeleteSlot = (id: number) => {
+    deleteSlotMutation.mutate(id);
   };
 
   return (

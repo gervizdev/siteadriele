@@ -137,6 +137,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: "Logout successful" });
   });
 
+  // Admin routes for managing available slots
+  app.get("/api/admin/slots/:date", async (req, res) => {
+    try {
+      const { date } = req.params;
+      const slots = await storage.getAvailableSlots(date);
+      res.json(slots);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch slots" });
+    }
+  });
+
+  app.post("/api/admin/slots", async (req, res) => {
+    try {
+      const validatedData = insertAvailableSlotSchema.parse(req.body);
+      const slot = await storage.createAvailableSlot(validatedData);
+      res.status(201).json(slot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid slot data", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Failed to create slot" });
+    }
+  });
+
+  app.delete("/api/admin/slots/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAvailableSlot(id);
+      res.json({ message: "Slot deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete slot" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
