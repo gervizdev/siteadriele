@@ -150,6 +150,16 @@ export default function AdminPanel() {
               >
                 Mensagens de Contato
               </button>
+              <button
+                onClick={() => setActiveTab("schedule")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "schedule"
+                    ? "border-rose-primary text-deep-rose"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Gerenciar Horários
+              </button>
             </nav>
           </div>
         </div>
@@ -284,6 +294,114 @@ export default function AdminPanel() {
                 <p className="text-gray-600">Nenhuma mensagem encontrada</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Schedule Management Tab */}
+        {activeTab === "schedule" && (
+          <div>
+            <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6">
+              Gerenciar Horários Disponíveis
+            </h2>
+            
+            {/* Date Selector */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                <div className="flex-1">
+                  <Label htmlFor="date" className="text-sm font-medium text-charcoal mb-2 block">
+                    Selecionar Data
+                  </Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="flex-1">
+                  <Label htmlFor="time" className="text-sm font-medium text-charcoal mb-2 block">
+                    Novo Horário
+                  </Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    value={newSlotTime}
+                    onChange={(e) => setNewSlotTime(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                
+                <Button
+                  onClick={handleCreateSlot}
+                  disabled={!newSlotTime || createSlotMutation.isPending}
+                  className="bg-rose-primary hover:bg-deep-rose text-white px-6 py-2"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {createSlotMutation.isPending ? "Criando..." : "Adicionar Horário"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Available Slots */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h3 className="text-xl font-semibold text-charcoal mb-4">
+                Horários para {formatDate(selectedDate)}
+              </h3>
+              
+              {slotsLoading ? (
+                <div className="grid gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-gray-300 h-12 rounded animate-pulse"></div>
+                  ))}
+                </div>
+              ) : slots && slots.length > 0 ? (
+                <div className="grid gap-2">
+                  {slots
+                    .sort((a, b) => a.time.localeCompare(b.time))
+                    .map((slot) => (
+                      <div
+                        key={slot.id}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Clock className="text-deep-rose h-5 w-5" />
+                          <span className="font-medium">{slot.time}</span>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              slot.isAvailable
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {slot.isAvailable ? "Disponível" : "Indisponível"}
+                          </span>
+                        </div>
+                        
+                        <Button
+                          onClick={() => handleDeleteSlot(slot.id)}
+                          disabled={deleteSlotMutation.isPending}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-600">Nenhum horário configurado para esta data</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Adicione horários usando o formulário acima
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
