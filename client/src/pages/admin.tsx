@@ -28,7 +28,7 @@ export default function AdminPanel() {
   });
 
   const { data: slots, isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
-    queryKey: ["/api/admin/slots", selectedDate],
+    queryKey: [`/api/admin/slots/${selectedDate}`],
     enabled: activeTab === "schedule",
   });
 
@@ -43,7 +43,7 @@ export default function AdminPanel() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/slots", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/slots/${selectedDate}`] });
       setNewSlotTime("");
       toast({
         title: "Horário criado",
@@ -68,7 +68,7 @@ export default function AdminPanel() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/slots", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/slots/${selectedDate}`] });
       toast({
         title: "Horário removido",
         description: "Horário removido com sucesso.",
