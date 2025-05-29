@@ -19,7 +19,7 @@ const bookingSchema = z.object({
   time: z.string().min(1, "Por favor, selecione um horário"),
   clientName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   clientPhone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
-  clientEmail: z.string().email("Email inválido"),
+  clientEmail: z.string().email("Email inválido").optional().or(z.literal("")),
   isFirstTime: z.boolean(),
   notes: z.string().optional(),
 });
@@ -31,6 +31,7 @@ export default function BookingSection() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedLocal, setSelectedLocal] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
@@ -112,6 +113,18 @@ export default function BookingSection() {
     before: startOfDay(new Date()),
   };
 
+  // Filtra apenas serviços de Irece
+  const servicesIrece = services?.filter(service => 
+    service.local?.toLowerCase() === "irece"
+  );
+
+  // Agrupa os serviços filtrados por categoria
+  const groupedServices = servicesIrece?.reduce((acc, service) => {
+    acc[service.category] = acc[service.category] || [];
+    acc[service.category].push(service);
+    return acc;
+  }, {} as Record<string, Service[]>);
+
   return (
     <section id="booking" className="py-20 bg-cream">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -123,42 +136,83 @@ export default function BookingSection() {
         <div className="bg-white rounded-3xl shadow-xl p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             
-            {/* Service Selection */}
+            {/* Categoria de Serviço */}
             <div>
-              <label className="block text-lg font-semibold text-charcoal mb-4">Escolha o Serviço</label>
+              <label className="block text-lg font-semibold text-charcoal mb-4">Escolha a Categoria</label>
               {servicesLoading ? (
                 <div className="grid md:grid-cols-3 gap-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="border-2 border-gray-200 rounded-xl p-4 animate-pulse">
                       <div className="bg-gray-300 h-6 rounded mb-2"></div>
-                      <div className="bg-gray-300 h-4 rounded"></div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="grid md:grid-cols-3 gap-4">
-                  {services?.map((service) => (
-                    <div
-                      key={service.id}
-                      onClick={() => handleServiceSelect(service)}
-                      className={`border-2 rounded-xl p-4 cursor-pointer transition-colors ${
-                        selectedService?.id === service.id
-                          ? "border-rose-primary bg-rose-primary/10"
+                  {groupedServices && Object.keys(groupedServices).map((category) => (
+                    <button
+                      type="button"
+                      key={category}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setSelectedService(null);
+                        setValue("serviceId", 0);
+                        setValue("serviceName", "");
+                        setValue("servicePrice", 0);
+                      }}
+                      className={`border-2 rounded-xl p-4 cursor-pointer font-semibold transition-colors ${
+                        selectedCategory === category
+                          ? "border-rose-primary bg-rose-primary/10 text-rose-primary"
                           : "border-gray-200 hover:border-rose-primary"
                       }`}
                     >
-                      <div className="text-center">
-                        <h4 className="font-semibold text-charcoal">{service.name}</h4>
-                        <p className="text-deep-rose font-bold">R$ {(service.price / 100).toFixed(0)}</p>
-                      </div>
-                    </div>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </button>
                   ))}
                 </div>
               )}
-              {errors.serviceId && (
-                <p className="text-red-600 text-sm mt-2">{errors.serviceId.message}</p>
-              )}
             </div>
+
+            {/* Serviço dentro da categoria - só aparece se uma categoria foi selecionada */}
+            {selectedCategory && (
+              <div className="mt-8">
+                <label className="block text-lg font-semibold text-charcoal mb-4">Escolha o Serviço</label>
+                <div className="grid md:grid-cols-3 gap-4">
+                  {groupedServices &&
+                    groupedServices[selectedCategory]?.map((service) => (
+                      <div key={service.id} className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={() => handleServiceSelect(service)}
+                          className={`border-2 rounded-xl p-4 cursor-pointer transition-colors font-semibold ${
+                            selectedService?.id === service.id
+                              ? "border-rose-primary bg-rose-primary/10"
+                              : "border-gray-200 hover:border-rose-primary"
+                          }`}
+                        >
+                          <div className="text-center">
+                            <h4 className="font-semibold text-charcoal">{service.name}</h4>
+                          </div>
+                        </button>
+                        {/* Slider/Accordion para descrição */}
+                        <div
+                          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                            selectedService?.id === service.id ? "max-h-40 opacity-100 mt-2" : "max-h-0 opacity-0"
+                          } bg-warm-gray rounded-xl text-charcoal text-center px-4`}
+                        >
+                          <div className="py-3">
+                            <span className="font-semibold">Descrição: </span>
+                            {service.description}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                {errors.serviceId && (
+                  <p className="text-red-600 text-sm mt-2">{errors.serviceId.message}</p>
+                )}
+              </div>
+            )}
 
             {/* Calendar */}
             <div>
@@ -271,7 +325,9 @@ export default function BookingSection() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-charcoal mb-2">Email</label>
+                <label className="block text-sm font-semibold text-charcoal mb-2">
+                  Email <span className="text-gray-500 font-normal">(opcional)</span>
+                </label>
                 <input 
                   type="email" 
                   {...register("clientEmail")}

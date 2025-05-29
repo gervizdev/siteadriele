@@ -30,6 +30,7 @@ export const contactMessages = pgTable("contact_messages", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   message: text("message").notNull(),
+  rating: integer("rating").notNull(), // <-- Adicione esta linha
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

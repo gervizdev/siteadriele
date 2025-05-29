@@ -5,20 +5,22 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { MapPin, Phone, Mail, Clock, Instagram, Facebook, MessageCircle } from "lucide-react";
+import { MapPin, Phone, Mail, Instagram, Facebook, MessageCircle, Star } from "lucide-react";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   message: z.string().min(10, "Mensagem deve ter pelo menos 10 caracteres"),
+  rating: z.number().min(1, "Dê uma nota").max(5, "Nota máxima é 5"),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
 
 export default function ContactSection() {
   const { toast } = useToast();
-  
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<ContactFormData>({
+  const [rating, setRating] = useState(0);
+
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
   });
 
@@ -46,6 +48,12 @@ export default function ContactSection() {
     sendMessageMutation.mutate(data);
   };
 
+  // Atualize o rating no form ao clicar
+  const handleStarClick = (value: number) => {
+    setRating(value);
+    setValue("rating", value, { shouldValidate: true });
+  };
+
   return (
     <section id="contact" className="py-20 bg-charcoal text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,8 +66,27 @@ export default function ContactSection() {
                   <MapPin className="text-white h-6 w-6" />
                 </div>
                 <div>
-                  <p className="font-semibold">Endereço</p>
-                  <p className="text-gray-300">Rua das Flores, 123 - Vila Madalena, São Paulo</p>
+                  <p className="font-semibold">Endereço Irecê</p>
+                  <p className="text-gray-300">
+                    Avenida Primeiro de Janeiro, nº 839<br />
+                    Apartamento <br />
+                    Em frente à Cuscuzeira Maria Bonita<br />
+                    Ao lado do Posto KF<br />
+                    
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="bg-rose-primary p-3 rounded-full">
+                  <MapPin className="text-white h-6 w-6" />
+                </div>
+                <div>
+                  <p className="font-semibold">Endereço Campo Formoso</p>
+                  <p className="text-gray-300">
+                    Travessa Rui Bacelar, nº 35<br />
+                    Casa<br />
+                    Portão marrom e cerâmica na frente
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -68,7 +95,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <p className="font-semibold">Telefone</p>
-                  <p className="text-gray-300">(11) 99999-9999</p>
+                  <p className="text-gray-300">(74) 98811-7722</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -77,16 +104,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <p className="font-semibold">Email</p>
-                  <p className="text-gray-300">contato@bellalashes.com</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="bg-deep-rose p-3 rounded-full">
-                  <Clock className="text-white h-6 w-6" />
-                </div>
-                <div>
-                  <p className="font-semibold">Horário de Funcionamento</p>
-                  <p className="text-gray-300">Seg-Sex: 9h às 18h | Sáb: 9h às 16h</p>
+                  <p className="text-gray-300">adriele.martins213@gmail.com</p>
                 </div>
               </div>
             </div>
@@ -95,21 +113,14 @@ export default function ContactSection() {
               <p className="font-semibold mb-4">Siga-nos nas redes sociais</p>
               <div className="flex space-x-4">
                 <a 
-                  href="#" 
+                  href="https://www.instagram.com/adrielemartins_lash?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" 
                   className="bg-rose-primary p-3 rounded-full hover:bg-rose-gold transition-colors"
                   aria-label="Instagram"
                 >
                   <Instagram className="text-white h-6 w-6" />
                 </a>
                 <a 
-                  href="#" 
-                  className="bg-rose-primary p-3 rounded-full hover:bg-rose-gold transition-colors"
-                  aria-label="Facebook"
-                >
-                  <Facebook className="text-white h-6 w-6" />
-                </a>
-                <a 
-                  href="#" 
+                  href="https://wa.me/5574988117722" 
                   className="bg-rose-primary p-3 rounded-full hover:bg-rose-gold transition-colors"
                   aria-label="WhatsApp"
                 >
@@ -153,6 +164,31 @@ export default function ContactSection() {
                 />
                 {errors.message && (
                   <p className="text-red-400 text-sm mt-1">{errors.message.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-charcoal mb-2">Sua nota</label>
+                <div className="flex items-center space-x-1 mb-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      type="button"
+                      key={star}
+                      onClick={() => handleStarClick(star)}
+                      className="focus:outline-none"
+                      tabIndex={-1}
+                    >
+                      <Star
+                        className={`h-7 w-7 transition-colors ${
+                          rating >= star ? "text-gold fill-gold" : "text-gray-400"
+                        }`}
+                        fill={rating >= star ? "currentColor" : "none"}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <input type="hidden" {...register("rating", { valueAsNumber: true })} />
+                {errors.rating && (
+                  <p className="text-red-400 text-sm mt-1">{errors.rating.message}</p>
                 )}
               </div>
               <button 
