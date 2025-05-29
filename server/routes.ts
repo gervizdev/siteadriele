@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAppointmentSchema, insertContactMessageSchema } from "@shared/schema";
+import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema } from "@shared/schema";
 import { z } from "zod";
 
 // Extend Express Request type to include session
@@ -33,21 +33,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
 
-      // Available time slots (9:00 AM to 6:00 PM, excluding lunch 12:00-13:00)
-      const allTimeSlots = [
-        "09:00", "10:30", "13:00", "14:30", "16:00"
-      ];
-
-      // Check which slots are available
-      const availableSlots = [];
-      for (const time of allTimeSlots) {
-        const isAvailable = await storage.isTimeSlotAvailable(date, time);
-        if (isAvailable) {
-          availableSlots.push(time);
-        }
-      }
-
-      res.json(availableSlots);
+      const availableTimes = await storage.getAvailableTimes(date);
+      res.json(availableTimes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch available times" });
     }

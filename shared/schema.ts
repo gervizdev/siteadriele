@@ -33,6 +33,14 @@ export const contactMessages = pgTable("contact_messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const availableSlots = pgTable("available_slots", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  time: text("time").notNull(), // HH:MM format
+  isAvailable: boolean("is_available").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
 });
@@ -47,9 +55,16 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).om
   createdAt: true,
 });
 
+export const insertAvailableSlotSchema = createInsertSchema(availableSlots).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+export type AvailableSlot = typeof availableSlots.$inferSelect;
+export type InsertAvailableSlot = z.infer<typeof insertAvailableSlotSchema>;

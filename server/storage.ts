@@ -2,12 +2,15 @@ import {
   services, 
   appointments, 
   contactMessages,
+  availableSlots,
   type Service, 
   type InsertService,
   type Appointment, 
   type InsertAppointment,
   type ContactMessage,
-  type InsertContactMessage
+  type InsertContactMessage,
+  type AvailableSlot,
+  type InsertAvailableSlot
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -26,6 +29,13 @@ export interface IStorage {
   // Contact Messages
   createContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
   getContactMessages(): Promise<ContactMessage[]>;
+  
+  // Available Slots Management
+  createAvailableSlot(slot: InsertAvailableSlot): Promise<AvailableSlot>;
+  getAvailableSlots(date: string): Promise<AvailableSlot[]>;
+  updateSlotAvailability(id: number, isAvailable: boolean): Promise<void>;
+  deleteAvailableSlot(id: number): Promise<void>;
+  getAvailableTimes(date: string): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -79,6 +89,54 @@ export class DatabaseStorage implements IStorage {
 
   async getContactMessages(): Promise<ContactMessage[]> {
     return await db.select().from(contactMessages);
+  }
+
+  async createAvailableSlot(insertSlot: InsertAvailableSlot): Promise<AvailableSlot> {
+    const [slot] = await db
+      .insert(availableSlots)
+      .values(insertSlot)
+      .returning();
+    return slot;
+  }
+
+  async getAvailableSlots(date: string): Promise<AvailableSlot[]> {
+    return await db
+      .select()
+      .from(availableSlots)
+      .where(eq(availableSlots.date, date));
+  }
+
+  async updateSlotAvailability(id: number, isAvailable: boolean): Promise<void> {
+    await db
+      .update(availableSlots)
+      .set({ isAvailable })
+      .where(eq(availableSlots.id, id));
+  }
+
+  async deleteAvailableSlot(id: number): Promise<void> {
+    await db
+      .delete(availableSlots)
+      .where(eq(availableSlots.id, id));
+  }
+
+  async getAvailableTimes(date: string): Promise<string[]> {
+    const dbSlots = await db
+      .select()
+      .from(availableSlots)
+      .where(eq(availableSlots.date, date));
+    
+    const activeSlots = dbSlots.filter((slot: AvailableSlot) => slot.isAvailable);
+    const bookedTimes = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.date, date));
+    
+    const bookedTimesList = bookedTimes.map(appointment => appointment.time);
+    
+    return activeSlots
+      .filter((slot: AvailableSlot) => !bookedTimesList.includes(slot.time))
+      .map((slot: AvailableSlot) => slot.time)
+      .sort();
   }
 }
 
