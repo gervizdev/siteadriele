@@ -19,6 +19,9 @@ export interface IStorage {
   // Services
   getServices(): Promise<Service[]>;
   getService(id: number): Promise<Service | undefined>;
+  createService(service: InsertService): Promise<Service>;
+  updateService(id: number, service: InsertService): Promise<Service>;
+  deleteService(id: number): Promise<void>;
   
   // Appointments
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
@@ -39,6 +42,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Services
   async getServices(): Promise<Service[]> {
     return await db.select().from(services);
   }
@@ -48,6 +52,30 @@ export class DatabaseStorage implements IStorage {
     return service || undefined;
   }
 
+  async createService(service: InsertService): Promise<Service> {
+    const [newService] = await db
+      .insert(services)
+      .values(service)
+      .returning();
+    return newService;
+  }
+
+  async updateService(id: number, service: InsertService): Promise<Service> {
+    const [updatedService] = await db
+      .update(services)
+      .set(service)
+      .where(eq(services.id, id))
+      .returning();
+    return updatedService;
+  }
+
+  async deleteService(id: number): Promise<void> {
+    await db
+      .delete(services)
+      .where(eq(services.id, id));
+  }
+
+  // Appointments
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
     const [appointment] = await db
       .insert(appointments)
@@ -79,6 +107,7 @@ export class DatabaseStorage implements IStorage {
     return !timeSlotTaken;
   }
 
+  // Contact Messages
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
     const [message] = await db
       .insert(contactMessages)
@@ -91,6 +120,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contactMessages);
   }
 
+  // Available Slots Management
   async createAvailableSlot(insertSlot: InsertAvailableSlot): Promise<AvailableSlot> {
     const [slot] = await db
       .insert(availableSlots)

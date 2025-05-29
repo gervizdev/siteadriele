@@ -14,6 +14,7 @@ const bookingSchema = z.object({
   serviceId: z.number().min(1, "Por favor, selecione um serviço"),
   serviceName: z.string().min(1),
   servicePrice: z.number().min(1),
+  local: z.string().min(1, "Por favor, selecione o local"), // <-- adicionado
   date: z.string().min(1, "Por favor, selecione uma data"),
   time: z.string().min(1, "Por favor, selecione um horário"),
   clientName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -29,6 +30,7 @@ export default function BookingSection() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedLocal, setSelectedLocal] = useState<string>("");
   const { toast } = useToast();
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
@@ -52,6 +54,7 @@ export default function BookingSection() {
     defaultValues: {
       isFirstTime: true,
       notes: "",
+      local: "",
     },
   });
 
@@ -213,6 +216,33 @@ export default function BookingSection() {
                 )}
               </div>
             )}
+
+            {/* Local Selection */}
+            <div>
+              <label className="block text-lg font-semibold text-charcoal mb-4">Escolha o Local</label>
+              <div className="flex gap-4">
+                {["campo formoso", "irece"].map((local) => (
+                  <button
+                    type="button"
+                    key={local}
+                    className={`flex-1 border-2 rounded-xl p-4 text-center font-semibold transition-all ${
+                      selectedLocal === local
+                        ? "border-rose-primary bg-rose-primary/10 text-rose-primary"
+                        : "border-gray-200 hover:border-rose-primary"
+                    }`}
+                    onClick={() => {
+                      setSelectedLocal(local);
+                      setValue("local", local, { shouldValidate: true });
+                    }}
+                  >
+                    {local.charAt(0).toUpperCase() + local.slice(1)}
+                  </button>
+                ))}
+              </div>
+              {errors.local && (
+                <p className="text-red-600 text-sm mt-2">{errors.local.message}</p>
+              )}
+            </div>
 
             {/* Client Information */}
             <div className="grid md:grid-cols-2 gap-6">

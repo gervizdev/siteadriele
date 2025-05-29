@@ -1,16 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, Sparkles, Crown } from "lucide-react";
 import type { Service } from "@shared/schema";
-import SobrancelhaIcon from './icons/SobrancelhaIcon.svg';
+import sobrancelhaIcon from './icons/SobrancelhaIcon.svg';
+import ciliosIcon from './icons/CiliosIcon.svg';
+import faceIcon from './icons/FaceIcon.svg';
 
 const serviceIcons = {
-  "fio a fio": Eye,
-  "volume brasileiro": Sparkles,
-  "volume egipcio": Crown,
-  "design de sobrancelha": SobrancelhaIcon,
-  "design com henna": SobrancelhaIcon,
-  "apenas henna": SobrancelhaIcon,
-  // Adicione outros ícones conforme desejar
+  "design de sobrancelha": sobrancelhaIcon,
+  "design de cilios": ciliosIcon,
+  // outros...
 };
 
 export default function ServicesSection() {
@@ -100,14 +98,30 @@ export default function ServicesSection() {
             <h3 className="text-2xl font-bold mb-6 capitalize">{category}</h3>
             <div className="grid md:grid-cols-3 gap-8">
               {services.map((service) => {
-                const IconComponent = serviceIcons[service.name as keyof typeof serviceIcons] || Eye;
+                let IconComponent;
+                const category = service.category.toLowerCase();
+
+                if (category.includes("sobrancelha")) {
+                  IconComponent = sobrancelhaIcon;
+                } else if (category.includes("cílios") || category.includes("cilios")) {
+                  IconComponent = ciliosIcon;
+                } else if (category.includes("buço") || category.includes("buco")) {
+                  IconComponent = faceIcon;
+                } else {
+                  IconComponent = serviceIcons[category] || Eye;
+                }
+
                 return (
                   <div 
                     key={service.id}
                     className="bg-warm-gray p-8 rounded-2xl hover:shadow-xl transition-all transform hover:-translate-y-2"
                   >
                     <div className="bg-rose-primary p-4 rounded-full w-16 h-16 flex items-center justify-center mb-6">
-                      <IconComponent className="text-white h-8 w-8" />
+                      {typeof IconComponent === "string" ? (
+                        <img src={IconComponent} alt={service.name} className="h-8 w-8" />
+                      ) : (
+                        <IconComponent className="h-8 w-8" />
+                      )}
                     </div>
                     <h4 className="font-playfair text-xl font-semibold text-charcoal mb-4">{service.name}</h4>
                     <p className="text-gray-600 mb-6">{service.description}</p>

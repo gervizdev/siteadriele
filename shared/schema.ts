@@ -6,8 +6,8 @@ export const services = pgTable("services", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  price: integer("price").notNull(), // price in cents
-  duration: integer("duration").notNull(), // duration in minutes
+  local: text("local").notNull(),
+  category: text("category").notNull(), // <-- adicionado aqui
 });
 
 export const appointments = pgTable("appointments", {

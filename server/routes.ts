@@ -22,17 +22,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new service
+  app.post("/api/services", async (req, res) => {
+    try {
+      const { name, description, local, category } = req.body;
+      if (!name || !description || !local || !category) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios" });
+      }
+      const newService = await storage.createService({ name, description, local, category });
+      res.status(201).json(newService);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar serviço" });
+    }
+  });
+
+  // Update service
+  app.put("/api/services/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, local, category } = req.body;
+      if (!name || !description || !local || !category) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios" });
+      }
+      const updatedService = await storage.updateService(Number(id), { name, description, local, category });
+      res.json(updatedService);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar serviço" });
+    }
+  });
+
+  // Delete service
+  app.delete("/api/services/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteService(Number(id));
+      res.json({ message: "Serviço deletado com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao deletar serviço" });
+    }
+  });
+
   // Get available time slots for a specific date
   app.get("/api/available-times/:date", async (req, res) => {
     try {
       const { date } = req.params;
-      
-      // Validate date format (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(date)) {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
-
       const availableTimes = await storage.getAvailableTimes(date);
       res.json(availableTimes);
     } catch (error) {
@@ -44,19 +81,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res) => {
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
-      
-      // Check if the time slot is still available
       const isAvailable = await storage.isTimeSlotAvailable(
         validatedData.date, 
         validatedData.time
       );
-      
       if (!isAvailable) {
         return res.status(409).json({ 
           message: "This time slot is no longer available. Please choose another time." 
         });
       }
-
       const appointment = await storage.createAppointment(validatedData);
       res.status(201).json(appointment);
     } catch (error) {
@@ -112,8 +145,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
-    
-    // Simple authentication - you can change these credentials
     if (username === "admin" && password === "bellalashes2024") {
       isAdminAuthenticated = true;
       res.json({ message: "Login successful" });
