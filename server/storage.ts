@@ -3,6 +3,7 @@ import {
   appointments, 
   contactMessages,
   availableSlots,
+  admins,
   type Service, 
   type InsertService,
   type Appointment, 
@@ -10,7 +11,9 @@ import {
   type ContactMessage,
   type InsertContactMessage,
   type AvailableSlot,
-  type InsertAvailableSlot
+  type InsertAvailableSlot,
+  type Admin,
+  type InsertAdmin
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -39,6 +42,10 @@ export interface IStorage {
   updateSlotAvailability(id: number, isAvailable: boolean): Promise<void>;
   deleteAvailableSlot(id: number): Promise<void>;
   getAvailableTimes(date: string): Promise<string[]>;
+
+  // Admins
+  getAdminByUsername(username: string): Promise<Admin | undefined>;
+  createAdmin(admin: InsertAdmin): Promise<Admin>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -117,7 +124,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAppointment(id: number): Promise<void> {
-    await db.delete(appointments).where(eq(appointments.id, id));
+    console.log("Deletando agendamento id:", id);
+    const result = await db.delete(appointments).where(eq(appointments.id, id));
+    // Verifica se algum registro foi removido
+    if (result.rowCount !== undefined && result.rowCount === 0) {
+      throw new Error("Agendamento não encontrado para exclusão");
+    }
   }
 
   // Contact Messages
@@ -193,6 +205,22 @@ export class DatabaseStorage implements IStorage {
       .filter((slot: AvailableSlot) => !bookedTimesList.includes(slot.time))
       .map((slot: AvailableSlot) => slot.time)
       .sort();
+  }
+
+  // Admins
+  async getAdminByUsername(username: string): Promise<Admin | undefined> {
+    const [admin] = await db.select().from(admins).where(eq(admins.username, username));
+    if (!admin) return undefined;
+    // Garante compatibilidade: se vier como 'password', renomeia para 'passwordHash'
+    if ((admin as any).password && !(admin as any).passwordHash) {
+      (admin as any).passwordHash = (admin as any).password;
+    }
+    return admin || undefined;
+  }
+
+  async createAdmin(admin: InsertAdmin): Promise<Admin> {
+    const [newAdmin] = await db.insert(admins).values(admin).returning();
+    return newAdmin;
   }
 }
 

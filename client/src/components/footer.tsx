@@ -3,9 +3,9 @@ export default function Footer() {
     <footer className="bg-charcoal text-white py-8 border-t border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h3 className="font-playfair text-2xl font-bold text-rose-primary mb-2">Adriele Lashes</h3>
+          <h3 className="font-playfair text-2xl font-bold text-rose-primary mb-2">Adriele Martins Lash</h3>
           <p className="text-gray-400 mb-4">Transformando olhares, realçando beleza</p>
-          <p className="text-sm text-gray-500">© 2024 Adreiele Lashes. Todos os direitos reservados.</p>
+          <p className="text-sm text-gray-500">© 2025 Adriele Martins Lash. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

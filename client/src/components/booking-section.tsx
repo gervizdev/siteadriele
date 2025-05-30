@@ -136,7 +136,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       typeof selectedService.price === "number" &&
       selectedService.price > 0 &&
       selectedLocal === "irece" &&
-      (selectedService.category === "cílios" || selectedService.category === "sobrancelha");
+      selectedService.category === "cílios"; // <-- só cílios
 
     if (isAdiantamento) {
       toast({ title: "Redirecionando para pagamento..." });
@@ -188,6 +188,18 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     setValue("serviceId", service.id);
     setValue("serviceName", service.name);
     setValue("servicePrice", service.price);
+
+    // Rola para o calendário após selecionar o serviço (desktop e mobile) com offset
+    setTimeout(() => {
+      const calendarLabel = document.querySelector('label[for="calendar-booking"]') || document.querySelector('label.block.text-lg.font-semibold.text-charcoal.mb-4');
+      if (calendarLabel) {
+        // Offset para mobile e desktop
+        const isMobile = window.innerWidth <= 768;
+        const offset = isMobile ? -80 : 500;
+        const y = (calendarLabel as HTMLElement).getBoundingClientRect().top + window.scrollY + offset;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
+    }, 100);
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -342,7 +354,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
             {/* Calendar */}
             <div>
-              <label className="block text-lg font-semibold text-charcoal mb-4">Escolha a Data</label>
+              <label id="calendar-booking" className="block text-lg font-semibold text-charcoal mb-4">Escolha a Data</label>
               <div className="bg-warm-gray rounded-xl p-6 flex justify-center">
                 <Calendar
                   mode="single"
@@ -500,7 +512,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                   ? (editAppointmentMutation.isPending ? "Salvando..." : "Salvar Alterações")
                   : createAppointmentMutation.isPending
                     ? "Agendando..."
-                    : selectedService && typeof selectedService.price === "number" && selectedService.price > 0 && selectedLocal === "irece" && (selectedService.category === "cílios" || selectedService.category === "sobrancelha")
+                    : selectedService && typeof selectedService.price === "number" && selectedService.price > 0 && selectedLocal === "irece" && selectedService.category === "cílios"
                       ? `Confirmar Agendamento (Adiantamento: R$ 30,00)`
                       : selectedService && typeof selectedService.price === "number" && selectedService.price > 0
                         ? `Confirmar Agendamento (R$ ${(selectedService.price / 100).toFixed(2)})`
@@ -519,7 +531,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                   Cancelar
                 </button>
               )}
-              {selectedService && selectedLocal === "irece" && (selectedService.category === "cílios" || selectedService.category === "sobrancelha") && (
+              {selectedService && selectedLocal === "irece" && selectedService.category === "cílios" && (
                 <p className="text-sm text-gray-600 mt-2">Será cobrado um adiantamento de <span className="font-bold text-rose-primary">R$ 30,00</span>. O valor será descontado do total do serviço no dia do atendimento.</p>
               )}
             </div>

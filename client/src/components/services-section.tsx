@@ -77,10 +77,21 @@ export default function ServicesSection() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  // Função para rolar até o calendário de agendamento (com offset para mobile)
   const scrollToBooking = () => {
-    const element = document.getElementById('booking');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+    const calendarLabel = document.getElementById('calendar-booking');
+    if (calendarLabel) {
+      // Detecta se é mobile (largura até 768px)
+      const isMobile = window.innerWidth <= 768;
+      const offset = isMobile ? -80 : -120; // ajuste conforme necessário
+      const y = calendarLabel.getBoundingClientRect().top + window.scrollY + offset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    } else {
+      // fallback: rola para o booking
+      const element = document.getElementById('booking');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 

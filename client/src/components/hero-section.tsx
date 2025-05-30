@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import heroImg from "./icons/hero-img.jpg"; // ajuste o nome se necessário
+import heroImg from "./icons/hero.jpeg"; 
 
 export default function HeroSection() {
   const scrollToBooking = () => {

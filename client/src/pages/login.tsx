@@ -26,7 +26,7 @@ export default function Login({ onLogin }: LoginProps) {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",

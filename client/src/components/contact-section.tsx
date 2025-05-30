@@ -152,28 +152,31 @@ export default function ContactSection() {
                   <p className="text-red-400 text-sm mt-1">{errors.name.message}</p>
                 )}
               </div>
-              <div>
-                <input 
-                  type="email" 
-                  {...register("email")}
-                  placeholder="Seu email" 
-                  className="w-full p-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:border-rose-primary"
-                />
-                {errors.email && (
-                  <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
-                )}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <input 
+                    type="email" 
+                    {...register("email")}
+                    placeholder="Seu email (opcional, mas preencha email ou telefone)" 
+                    className="w-full p-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:border-rose-primary"
+                  />
+                  {errors.email && (
+                    <p className="text-red-400 text-sm mt-1">{errors.email.message}</p>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="tel" 
+                    {...register("phone")}
+                    placeholder="Seu telefone (opcional, mas preencha email ou telefone)" 
+                    className="w-full p-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:border-rose-primary"
+                  />
+                  {errors.phone && (
+                    <p className="text-red-400 text-sm mt-1">{errors.phone.message}</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <input 
-                  type="tel" 
-                  {...register("phone")}
-                  placeholder="Seu telefone" 
-                  className="w-full p-4 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/70 focus:outline-none focus:border-rose-primary"
-                />
-                {errors.phone && (
-                  <p className="text-red-400 text-sm mt-1">{errors.phone.message}</p>
-                )}
-              </div>
+              <p className="text-xs text-gray-300 mt-1">Preencha <span className="font-semibold">email</span> ou <span className="font-semibold">telefone</span> (apenas um é obrigatório)</p>
               <div>
                 <textarea 
                   rows={4} 

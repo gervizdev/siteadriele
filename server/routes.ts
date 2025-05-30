@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 
 // Extend Express Request type to include session
 declare module "express-session" {
@@ -131,6 +132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteAppointment(Number(id));
       res.json({ message: "Agendamento excluído com sucesso" });
     } catch (error) {
+      if (error instanceof Error && error.message.includes("não encontrado")) {
+        return res.status(404).json({ message: "Agendamento não encontrado" });
+      }
+      console.error("Erro ao excluir agendamento:", error);
       res.status(500).json({ message: "Erro ao excluir agendamento" });
     }
   });
@@ -201,31 +206,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple in-memory authentication for admin panel
-  let isAdminAuthenticated = false;
-
+  // Simple stateless authentication for admin panel
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
-    if (username === "admin" && password === "bellalashes2024") {
-      isAdminAuthenticated = true;
+    const admin = await storage.getAdminByUsername(username);
+    if (!admin) {
+      return res.status(401).json({ message: "Credenciais inválidas" });
+    }
+    const passwordMatch = await bcrypt.compare(password, admin.passwordHash);
+    if (passwordMatch) {
+      // Não salva sessão, apenas responde OK
       res.json({ message: "Login successful" });
     } else {
       res.status(401).json({ message: "Credenciais inválidas" });
     }
   });
 
-  // Check authentication status
+  // Check authentication status - sempre exige novo login
   app.get("/api/auth/check", async (req, res) => {
-    if (isAdminAuthenticated) {
-      res.json({ authenticated: true });
-    } else {
-      res.status(401).json({ authenticated: false });
-    }
+    // Nunca retorna autenticado, força login sempre
+    res.status(401).json({ authenticated: false });
   });
 
-  // Logout
+  // Logout - apenas responde OK, não há sessão para limpar
   app.post("/api/auth/logout", async (req, res) => {
-    isAdminAuthenticated = false;
     res.json({ message: "Logout successful" });
   });
 

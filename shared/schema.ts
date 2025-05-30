@@ -44,6 +44,12 @@ export const availableSlots = pgTable("available_slots", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const admins = pgTable("admins", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
 });
@@ -63,6 +69,10 @@ export const insertAvailableSlotSchema = createInsertSchema(availableSlots).omit
   createdAt: true,
 });
 
+export const insertAdminSchema = createInsertSchema(admins).omit({
+  id: true,
+});
+
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Appointment = typeof appointments.$inferSelect;
@@ -71,3 +81,5 @@ export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
 export type AvailableSlot = typeof availableSlots.$inferSelect;
 export type InsertAvailableSlot = z.infer<typeof insertAvailableSlotSchema>;
+export type Admin = typeof admins.$inferSelect;
+export type InsertAdmin = typeof admins.$inferInsert;

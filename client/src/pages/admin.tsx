@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2, Edit2 } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2, Edit2, Scissors } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { Appointment, ContactMessage, AvailableSlot } from "@shared/schema";
+import type { Appointment, ContactMessage, AvailableSlot, Service } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import BookingSection from "@/components/booking-section";
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule">("appointments");
+  const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule" | "services">("appointments");
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
@@ -21,8 +21,18 @@ export default function AdminPanel() {
   const [deleteType, setDeleteType] = useState<null | { type: 'appointment' | 'message', id: number }>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editingReview, setEditingReview] = useState<ContactMessage | null>(null);
-  const { toast } = useToast();
+  // Estados para serviços
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [serviceForm, setServiceForm] = useState<{ name: string; description: string; local: string; category: string; price: number }>({
+    name: "",
+    description: "",
+    local: "",
+    category: "",
+    price: 0,
+  });
+
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: appointments, isLoading: appointmentsLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"],
@@ -35,6 +45,12 @@ export default function AdminPanel() {
   const { data: slots, isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
     queryKey: [`/api/admin/slots/${selectedDate}`],
     enabled: activeTab === "schedule",
+  });
+
+  // Serviços
+  const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
+    queryKey: ["/api/services"],
+    enabled: activeTab === "services",
   });
 
   const createSlotMutation = useMutation({
@@ -90,6 +106,7 @@ export default function AdminPanel() {
 
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: number) => {
+      console.log("Tentando excluir agendamento id:", id); // Adicione este log
       await apiRequest("DELETE", `/api/appointments/${id}`);
     },
     onSuccess: () => {
@@ -112,6 +129,47 @@ export default function AdminPanel() {
     },
     onError: () => {
       toast({ title: "Erro", description: "Falha ao excluir mensagem.", variant: "destructive" });
+    },
+  });
+
+  const createServiceMutation = useMutation({
+    mutationFn: async (data: typeof serviceForm) => {
+      return await apiRequest("POST", "/api/services", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      setServiceForm({ name: "", description: "", local: "", category: "", price: 0 });
+      toast({ title: "Serviço criado", description: "Serviço cadastrado com sucesso." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao criar serviço.", variant: "destructive" });
+    },
+  });
+
+  const updateServiceMutation = useMutation({
+    mutationFn: async (data: Service) => {
+      return await apiRequest("PUT", `/api/services/${data.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      setEditingService(null);
+      toast({ title: "Serviço atualizado", description: "Serviço atualizado com sucesso." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao atualizar serviço.", variant: "destructive" });
+    },
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/services/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({ title: "Serviço excluído", description: "Serviço removido com sucesso." });
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Falha ao excluir serviço.", variant: "destructive" });
     },
   });
 
@@ -191,6 +249,16 @@ export default function AdminPanel() {
                 }`}
               >
                 Gerenciar Horários
+              </button>
+              <button
+                onClick={() => setActiveTab("services")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "services"
+                    ? "border-rose-primary text-deep-rose"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                } flex items-center gap-1`}
+              >
+                <Scissors className="w-4 h-4" /> Serviços
               </button>
             </nav>
           </div>
@@ -538,6 +606,137 @@ export default function AdminPanel() {
             </div>
           </div>
         )}
+
+        {/* Services Tab */}
+        {activeTab === "services" && (
+          <div>
+            <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6">
+              Serviços ({services?.length || 0})
+            </h2>
+            {/* Formulário de criação/edição */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  if (editingService) {
+                    updateServiceMutation.mutate({ ...editingService, ...serviceForm });
+                  } else {
+                    createServiceMutation.mutate(serviceForm);
+                  }
+                }}
+                className="grid md:grid-cols-2 gap-4"
+              >
+                <div>
+                  <Label>Nome</Label>
+                  <Input
+                    value={serviceForm.name}
+                    onChange={e => setServiceForm(f => ({ ...f, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Input
+                    value={serviceForm.category}
+                    onChange={e => setServiceForm(f => ({ ...f, category: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Local</Label>
+                  <Input
+                    value={serviceForm.local}
+                    onChange={e => setServiceForm(f => ({ ...f, local: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Preço (em reais)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={serviceForm.price / 100}
+                    onChange={e => setServiceForm(f => ({ ...f, price: Math.round(Number(e.target.value.replace(',', '.')) * 100) }))}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={serviceForm.description}
+                    onChange={e => setServiceForm(f => ({ ...f, description: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2 flex gap-2 mt-2">
+                  <Button type="submit" className="bg-deep-rose text-white">
+                    {editingService ? "Salvar Alterações" : "Adicionar Serviço"}
+                  </Button>
+                  {editingService && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingService(null);
+                        setServiceForm({ name: "", description: "", local: "", category: "", price: 0 });
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+              </form>
+            </div>
+            {/* Lista de serviços */}
+            <div className="grid gap-4">
+              {servicesLoading ? (
+                <div className="text-center">Carregando...</div>
+              ) : services && services.length > 0 ? (
+                services.map(service => (
+                  <div key={service.id} className="bg-white rounded-2xl p-6 shadow-sm flex justify-between items-center">
+                    <div>
+                      <div className="font-semibold text-lg">{service.name}</div>
+                      <div className="text-sm text-gray-600">{service.category} - {service.local}</div>
+                      <div className="text-sm text-gray-600">{service.description}</div>
+                      <div className="text-sm text-gray-800 font-bold">R$ {(service.price / 100).toFixed(2)}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingService(service);
+                          setServiceForm({
+                            name: service.name,
+                            description: service.description,
+                            local: service.local,
+                            category: service.category,
+                            price: service.price,
+                          });
+                        }}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" /> Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteServiceMutation.mutate(service.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-600">Nenhum serviço cadastrado.</div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Modal de confirmação de exclusão */}
