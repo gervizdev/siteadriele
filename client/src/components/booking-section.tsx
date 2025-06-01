@@ -202,7 +202,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   console.log("MP useEffect triggered. waitingPayment:", waitingPayment, "preferenceId:", preferenceId, "MP SDK:", typeof (window as any).MercadoPago);
   if (waitingPayment && preferenceId && (window as any).MercadoPago) {
     console.log("MP useEffect: Conditions met. Initializing Brick.");
-    const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || "TEST-d3df5742-153d-43cc-a18e-da4f8745aa79";
+    const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || process.env.VITE_MERCADOPAGO_PUBLIC_KEY;
     console.log("Using MP Public Key:", mpPublicKey);
 
     if (!mpPublicKey) {
