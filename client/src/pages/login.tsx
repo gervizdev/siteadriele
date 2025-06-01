@@ -66,7 +66,7 @@ export default function Login({ onLogin }: LoginProps) {
       <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-playfair text-3xl font-bold text-deep-rose mb-2">
-            Bella Lashes
+            adriele martins lash
           </h1>
           <p className="text-gray-600">Painel Administrativo</p>
         </div>

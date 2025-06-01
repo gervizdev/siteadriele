@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "express-session": "^1.18.1",
+    "mercadopago": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/express-session": "^1.18.1"
+  }
+}

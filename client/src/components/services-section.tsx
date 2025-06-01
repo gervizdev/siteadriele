@@ -60,15 +60,15 @@ export default function ServicesSection() {
   // Filtra para mostrar apenas um serviço por nome/categoria (priorizando "irece")
   const uniqueServices = services
     ? Object.values(
-        services.reduce((acc, service) => {
-          const key = `${service.category}-${service.name}`;
-          // Prioriza o serviço de "irece", senão pega o primeiro encontrado
-          if (!acc[key] || service.local === "irece") {
-            acc[key] = service;
-          }
-          return acc;
-        }, {} as Record<string, Service>)
-      )
+      services.reduce((acc, service) => {
+        const key = `${service.category}-${service.name}`;
+        // Prioriza o serviço de "irece", senão pega o primeiro encontrado
+        if (!acc[key] && service.local === "irece") {
+          acc[key] = service;
+        }
+        return acc;
+      }, {} as Record<string, Service>)
+    )
     : [];
 
   // Agrupa os serviços filtrados por categoria
@@ -125,7 +125,7 @@ export default function ServicesSection() {
                 }
 
                 return (
-                  <div 
+                  <div
                     key={service.id}
                     className="bg-warm-gray p-8 rounded-2xl hover:shadow-xl transition-all transform hover:-translate-y-2"
                   >
@@ -139,7 +139,7 @@ export default function ServicesSection() {
                     <h4 className="font-playfair text-xl font-semibold text-charcoal mb-4">{service.name}</h4>
                     <p className="text-gray-600 mb-2">{service.description}</p>
                     <div className="flex justify-end">
-                      <button 
+                      <button
                         onClick={scrollToBooking}
                         className="bg-deep-rose text-white px-6 py-2 rounded-full hover:bg-rose-gold transition-colors"
                       >

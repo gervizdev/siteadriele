@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2, Edit2, Scissors } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -30,6 +30,8 @@ export default function AdminPanel() {
     category: "",
     price: 0,
   });
+  // Novo estado para controle do serviço a ser excluído
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -182,9 +184,26 @@ export default function AdminPanel() {
     return `R$ ${(cents / 100).toFixed(0)}`;
   };
 
+  // Utilitário para comparar horário (HH:mm) com o horário atual
+  function isTimeInPast(dateStr: string, timeStr: string, offsetMin: number = 0) {
+    const [h, m] = timeStr.split(":").map(Number);
+    const date = new Date(dateStr + 'T' + timeStr);
+    // Aplica offset negativo para considerar antecedência
+    date.setMinutes(date.getMinutes() + offsetMin);
+    return date < new Date();
+  }
+
   const handleCreateSlot = () => {
     if (!newSlotTime) return;
-    
+    // Impede adicionar horário que já passou
+    if (isTimeInPast(selectedDate, newSlotTime)) {
+      toast({
+        title: "Horário inválido",
+        description: "Não é possível adicionar um horário que já passou.",
+        variant: "destructive",
+      });
+      return;
+    }
     createSlotMutation.mutate({
       date: selectedDate,
       time: newSlotTime,
@@ -196,6 +215,20 @@ export default function AdminPanel() {
     deleteSlotMutation.mutate(id);
   };
 
+  // Remove automaticamente todos os horários passados, inclusive de dias e meses anteriores, ao carregar qualquer data na tela de administração.
+  useEffect(() => {
+    if (slots && slots.length > 0) {
+      slots.forEach(slot => {
+        // Remove slots de qualquer data que já passou (com 10 minutos de antecedência)
+        const slotDate = slot.date || selectedDate;
+        if (isTimeInPast(slotDate, slot.time, 10)) {
+          deleteSlotMutation.mutate(slot.id);
+        }
+      });
+    }
+    // eslint-disable-next-line
+  }, [slots]);
+
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
@@ -203,7 +236,7 @@ export default function AdminPanel() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="font-playfair text-2xl font-bold text-deep-rose">
-              Painel Administrativo - Bella Lashes
+              Painel Administrativo - adriele martins lash
             </h1>
             <button 
               onClick={() => window.location.href = '/'}
@@ -562,6 +595,7 @@ export default function AdminPanel() {
               ) : slots && slots.length > 0 ? (
                 <div className="grid gap-2">
                   {slots
+                    .filter(slot => !isTimeInPast(selectedDate, slot.time, 10))
                     .sort((a, b) => a.time.localeCompare(b.time))
                     .map((slot) => (
                       <div
@@ -689,50 +723,61 @@ export default function AdminPanel() {
               </form>
             </div>
             {/* Lista de serviços */}
-            <div className="grid gap-4">
-              {servicesLoading ? (
-                <div className="text-center">Carregando...</div>
-              ) : services && services.length > 0 ? (
-                services.map(service => (
-                  <div key={service.id} className="bg-white rounded-2xl p-6 shadow-sm flex justify-between items-center">
-                    <div>
-                      <div className="font-semibold text-lg">{service.name}</div>
-                      <div className="text-sm text-gray-600">{service.category} - {service.local}</div>
-                      <div className="text-sm text-gray-600">{service.description}</div>
-                      <div className="text-sm text-gray-800 font-bold">R$ {(service.price / 100).toFixed(2)}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingService(service);
-                          setServiceForm({
-                            name: service.name,
-                            description: service.description,
-                            local: service.local,
-                            category: service.category,
-                            price: service.price,
-                          });
-                        }}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                      >
-                        <Edit2 className="w-4 h-4 mr-1" /> Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteServiceMutation.mutate(service.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" /> Excluir
-                      </Button>
-                    </div>
+            <div className="grid md:grid-cols-2 gap-8">
+              {["campo formoso", "irece"].map(local => (
+                <div key={local}>
+                  <h3 className="text-lg font-bold mb-4 capitalize text-deep-rose">{local}</h3>
+                  <div className="grid gap-4">
+                    {servicesLoading ? (
+                      <div className="text-center">Carregando...</div>
+                    ) : services && services.length > 0 ? (
+                      [...services]
+                        .filter(service => service.local?.toLowerCase() === local)
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map(service => (
+                          <div key={service.id} className="bg-white rounded-2xl p-6 shadow-sm flex justify-between items-center min-h-[170px] h-full">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-lg break-words">{service.name}</div>
+                              <div className="text-sm text-gray-600 break-words">{service.category} - {service.local}</div>
+                              <div className="text-sm text-gray-600 break-words">{service.description}</div>
+                              <div className="text-sm text-gray-800 font-bold">R$ {(service.price / 100).toFixed(2)}</div>
+                            </div>
+                            <div className="flex flex-col gap-2 items-end ml-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingService(service);
+                                  setServiceForm({
+                                    name: service.name,
+                                    description: service.description,
+                                    local: service.local,
+                                    category: service.category,
+                                    price: service.price,
+                                  });
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" /> Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setServiceToDelete(service)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" /> Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-center text-gray-600">Nenhum serviço cadastrado.</div>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-600">Nenhum serviço cadastrado.</div>
-              )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -755,6 +800,29 @@ export default function AdminPanel() {
                 if (deleteType?.type === 'message') deleteMessageMutation.mutate(deleteType.id);
               }}
               disabled={deleteAppointmentMutation.isPending || deleteMessageMutation.isPending}
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmação para exclusão de serviço */}
+      <Dialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+          </DialogHeader>
+          <p>Tem certeza que deseja excluir o serviço <b>{serviceToDelete?.name}</b>?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setServiceToDelete(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (serviceToDelete) deleteServiceMutation.mutate(serviceToDelete.id);
+                setServiceToDelete(null);
+              }}
+              disabled={deleteServiceMutation.isPending}
             >
               Excluir
             </Button>
