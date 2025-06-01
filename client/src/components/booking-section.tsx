@@ -22,7 +22,7 @@ const bookingSchema = z.object({
   time: z.string().min(1, "Por favor, selecione um horário"),
   clientName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   clientPhone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
-  clientEmail: z.string().email("Email inválido").optional().or(z.literal("")),
+  clientEmail: z.string().min(1, "O email é obrigatório").email("Formato de email inválido"),
   isFirstTime: z.boolean(),
   notes: z.string().optional(),
 });
@@ -202,12 +202,12 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   console.log("MP useEffect triggered. waitingPayment:", waitingPayment, "preferenceId:", preferenceId, "MP SDK:", typeof (window as any).MercadoPago);
   if (waitingPayment && preferenceId && (window as any).MercadoPago) {
     console.log("MP useEffect: Conditions met. Initializing Brick.");
-    const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || process.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+    const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || process.env.MERCADOPAGO_PUBLIC_KEY;
     console.log("Using MP Public Key:", mpPublicKey);
 
     if (!mpPublicKey) {
         console.error("Mercado Pago Public Key is MISSING!");
-        toast({ title: "Erro de Configuração", description: "Chave pública do Mercado Pago não encontrada.", variant: "destructive"});
+          
         setWaitingPayment(false);
         setPreferenceId(null);
         return;
@@ -668,7 +668,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     {errors.clientPhone && <p className="mt-1 text-red-500 text-xs">{errors.clientPhone.message}</p>}
                   </div>
                   <div className="md:col-span-2">
-                    <label htmlFor="clientEmail" className="block text-sm font-medium text-charcoal mb-1">Email <span className="text-gray-400 text-xs">(opcional, para confirmação)</span></label>
+                    <label htmlFor="clientEmail" className="block text-sm font-medium text-charcoal mb-1">Email <span className="text-red-500">*</span></label>
                     <input id="clientEmail" type="email" {...register("clientEmail")}
                       className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-primary focus:border-rose-primary transition-colors ${errors.clientEmail ? "border-red-500 ring-red-500" : ""}`}
                       placeholder="seu@email.com" />
@@ -717,7 +717,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     {hasCiliosIrece && (
                       <div className="!mt-4 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-start gap-2">
                         <QuestionMarkIcon className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ 30,00</b> via Mercado Pago. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento.</span>
+                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ 30,00</b>. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento.</span>
                       </div>
                     )}
                   </div>

@@ -320,6 +320,17 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
   app.post("/api/mercadopago", async (req: Request, res: Response) => {
     const { title, price, quantity, payer, bookingData } = req.body;
 
+     if (!payer || !payer.email || typeof payer.email !== 'string' || payer.email.trim() === "") {
+       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP sem email do pagador válido. Payer recebido:", payer);
+       return res.status(400).json({ error: "O email do pagador é obrigatório para processar o pagamento." });
+   }
+
+   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Regex simples para formato de email
+   if (!emailRegex.test(payer.email)) {
+       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP com email do pagador mal formatado:", payer.email);
+       return res.status(400).json({ error: "O formato do email do pagador é inválido." });
+   }
+   
     // Validação básica dos dados recebidos (adapte conforme necessidade)
     if (!title || typeof price !== 'number' || price <= 0 || typeof quantity !== 'number' || quantity <= 0 || !payer || !payer.email) {
         return res.status(400).json({ error: "Dados inválidos para criar preferência de pagamento." });
