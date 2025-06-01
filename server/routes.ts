@@ -10,7 +10,7 @@ import path from "path";
 
 // Instância Mercado Pago (SDK v2.x)
 const mp = new MercadoPagoConfig({
-  accessToken: "TEST-3675155790914104-053014-6b5ddcb1203041796a5c22eb8484bdf5-278456852"
+  accessToken: "TEST-1366143239738696-060115-d936978895b796e46815dc85681b5db1-2469391695"
 });
 
 export async function registerRoutes(app): Promise<Server> {
