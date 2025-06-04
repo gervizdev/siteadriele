@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 export async function setupVite(app: Express, server: Server) {
   // Importa Vite e viteConfig dinamicamente só em dev
   const viteModule = await import("vite");
-  const viteConfigModule = await import("../vite.config.ts");
+  const viteConfigModule = await import("../vite.config.js");
   const createViteServer = viteModule.createServer;
   const viteLogger = viteModule.createLogger();
   const viteConfig = viteConfigModule.default;
