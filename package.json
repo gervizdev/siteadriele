@@ -5,8 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/start.ts",
-    "build": "vite build && esbuild server/start.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/start.js",
+    "build": "vite build && tsc -p tsconfig.json --outDir dist",
+    "start": "NODE_ENV=production node dist/server/start.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
