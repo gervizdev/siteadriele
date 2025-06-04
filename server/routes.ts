@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { MercadoPagoConfig, Preference } from "mercadopago"; // Importação direta do Preference para SDK v3
 import fs from "fs";
 import path from "path";
+import { toZonedTime, format as formatTz } from "date-fns-tz";
 
 // Carrega o Access Token do Mercado Pago das variáveis de ambiente
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -88,28 +89,17 @@ export function registerRoutes(app: any): Server {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
 
-      // Limpeza automática de slots passados e slots do dia seguinte que já completaram 24h
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const currentTime = now.toTimeString().slice(0,5); // HH:MM
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      // Timezone fix: sempre usar America/Bahia para referência de horários
+      const TIMEZONE = "America/Bahia";
+      const nowBahia = toZonedTime(new Date(), TIMEZONE);
+      const todayStr = formatTz(nowBahia, "yyyy-MM-dd", { timeZone: TIMEZONE });
+      const currentTime = formatTz(nowBahia, "HH:mm", { timeZone: TIMEZONE });
 
       // Remove slots anteriores ao horário atual do dia de hoje
       if (date === todayStr) {
         const slotsHoje = await storage.getAvailableSlots(todayStr);
         for (const slot of slotsHoje) {
           if (slot.time < currentTime) {
-            await storage.deleteAvailableSlot(slot.id);
-          }
-        }
-      }
-      // Remove slots do dia seguinte que já completaram 24h (ou seja, slots com hora menor ou igual à hora atual)
-      if (date === tomorrowStr) {
-        const slotsAmanha = await storage.getAvailableSlots(tomorrowStr);
-        for (const slot of slotsAmanha) {
-          if (slot.time <= currentTime) {
             await storage.deleteAvailableSlot(slot.id);
           }
         }

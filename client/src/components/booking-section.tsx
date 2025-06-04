@@ -309,7 +309,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     }, 100);
   };
 
-  const disabledDays = { before: startOfDay(new Date()) };
+  const disabledDays = { before: startOfDay(addDays(new Date(), 1)) };
 
   // Corrigido nome da variável: agora apenas 'servicesCampo'
   const servicesCampo = services?.filter(s => s.local?.toLowerCase() === "campo formoso");
