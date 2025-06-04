@@ -1,2 +1,3 @@
 import 'dotenv/config';
-import './index';
+// Importa o arquivo index.js gerado pelo build (com extensão)
+import('./index.js');
