@@ -18,13 +18,13 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "types": ["node", "vite/client"],
-    "paths": {
-      "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"]
-    },
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "outDir": "./dist",
-    "rootDir": "."
+    "rootDir": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
+    }
   }
 }

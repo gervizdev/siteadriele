@@ -14,7 +14,7 @@ import {
   type InsertAvailableSlot,
   type Admin,
   type InsertAdmin
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
