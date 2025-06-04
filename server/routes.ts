@@ -1,6 +1,6 @@
 import { createServer, type Server } from "http";
 import express, { Application, Request, Response } from "express";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
