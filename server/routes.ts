@@ -508,6 +508,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       console.log("Criando preferência Mercado Pago (rota /api/pagamento) com payload:", JSON.stringify(preferencePayload, null, 2));
       const result = await preference.create({ body: preferencePayload });
       console.log("Preferência Mercado Pago criada (rota /api/pagamento):", JSON.stringify(result, null, 2));
+      // Não retorna mais sandbox_init_point, só init_point (produção)
       res.json({ preference_id: result.id, init_point: result.init_point });
     } catch (err: any) {
       console.error("-----------------------------------------------------");
