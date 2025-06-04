@@ -40,6 +40,9 @@ FROM base
 # Copy built application
 COPY --from=build /app /app
 
+# Debug: listar arquivos gerados no build
+RUN echo "Conteúdo de /app/dist/server/ após o build:" && ls -lh /app/dist/server/
+
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
 CMD [ "npm", "run", "start" ]
