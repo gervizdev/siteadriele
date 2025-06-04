@@ -172,11 +172,17 @@ export default function AdminPanel() {
   });
   const deleteAllSlotsMutation = useMutation({
     mutationFn: async (date: string) => {
-      const response = await fetch(`/api/admin/slots?date=${date}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Falha ao apagar todos os horários do dia");
-      return response.json();
+      // Busca todos os slots do dia
+      const response = await fetch(`/api/admin/slots/${date}`);
+      if (!response.ok) throw new Error("Falha ao buscar horários do dia");
+      const slots: { id: number; isAvailable: boolean }[] = await response.json();
+      // Deleta apenas os disponíveis
+      for (const slot of slots) {
+        if (slot.isAvailable) {
+          await fetch(`/api/admin/slots/${slot.id}`, { method: "DELETE" });
+        }
+      }
+      return { message: `Todos os horários disponíveis de ${date} foram apagados.` };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/slots/${selectedDate}`] });
@@ -655,9 +661,9 @@ export default function AdminPanel() {
                     let [h, m] = batchStart.split(":").map(Number);
                     const [endH, endM] = batchEnd.split(":").map(Number);
                     const times: string[] = [];
-                    while (h < endH || (h === endH && m < endM)) {
-                      // Pula o intervalo de 12:00 até 12:59
-                      if (!(h === 12)) {
+                    while (h < endH || (h === endH && m <= endM)) {
+                      // Pula o intervalo de 12:00 até 13:59
+                      if (!(h === 12 || h === 13)) {
                         times.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
                       }
                       // Soma 60 minutos
@@ -717,7 +723,7 @@ export default function AdminPanel() {
                     onClick={() => setShowDeleteAllDialog(true)}
                     className="ml-2"
                   >
-                    Apagar todos do dia
+                    Apagar todos os disponiveis
                   </Button>
                 )}
               </div>
