@@ -15,7 +15,7 @@ import {
   type Admin,
   type InsertAdmin
 } from "../shared/schema.js";
-import { db } from "./db";
+import { db } from "./db.js";
 import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
