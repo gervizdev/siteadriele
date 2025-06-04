@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { toZonedTime, format as formatTz } from "date-fns-tz";
 import webpush from "web-push";
+import fetch from "node-fetch";
 
 // Carrega o Access Token do Mercado Pago das variáveis de ambiente
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -39,6 +40,32 @@ webpush.setVapidDetails(
   VAPID_PUBLIC_KEY!,
   VAPID_PRIVATE_KEY!
 );
+
+// Configuração Telegram
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_IDS = process.env.TELEGRAM_CHAT_ID
+  ? process.env.TELEGRAM_CHAT_ID.split(',').map(id => id.trim()).filter(Boolean)
+  : [];
+
+async function sendTelegramToAdmin(message: string) {
+  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_CHAT_IDS.length === 0) return;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  for (const chat_id of TELEGRAM_CHAT_IDS) {
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id,
+          text: message,
+          parse_mode: "Markdown"
+        })
+      });
+    } catch (err) {
+      console.error(`Erro ao enviar mensagem para o Telegram (chat_id: ${chat_id}):`, err);
+    }
+  }
+}
 
 // ATENÇÃO: Tipagem 'any' para evitar conflito de sobrecarga do Express com handlers async no TypeScript
 export function registerRoutes(app: any): Server {
@@ -147,12 +174,18 @@ export function registerRoutes(app: any): Server {
       if (slot) {
         await storage.updateSlotAvailability(slot.id, false);
       }
-      // Após criar o agendamento, dispara push notification para o admin
+      // Após criar o agendamento, dispara push notification e Telegram
       await sendPushToAdmin({
         title: "Novo agendamento recebido!",
         body: `Cliente: ${validatedData.clientName} | Serviço: ${validatedData.serviceName} | Data: ${validatedData.date} ${validatedData.time}`,
         url: "/admin"
       });
+      await sendTelegramToAdmin(
+        `*Novo agendamento:*
+Cliente: ${validatedData.clientName}
+Serviço: ${validatedData.serviceName}
+Data: ${validatedData.date} ${validatedData.time}`
+      );
       res.status(201).json({
         message: "Appointment created successfully",
         appointment,
