@@ -40,6 +40,7 @@ export const availableSlots = pgTable("available_slots", {
   id: serial("id").primaryKey(),
   date: text("date").notNull(), // YYYY-MM-DD format
   time: text("time").notNull(), // HH:MM format
+  local: text("local").notNull(), // <-- NOVO CAMPO: local obrigatório
   isAvailable: boolean("is_available").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

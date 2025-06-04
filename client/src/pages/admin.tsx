@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import BookingSection from "@/components/booking-section";
 
 export default function AdminPanel() {
+  // HOOKS E ESTADOS DEVEM VIR PRIMEIRO!
   const [activeTab, setActiveTab] = useState<"appointments" | "messages" | "schedule" | "services">("appointments");
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -21,7 +22,6 @@ export default function AdminPanel() {
   const [deleteType, setDeleteType] = useState<null | { type: 'appointment' | 'message', id: number }>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editingReview, setEditingReview] = useState<ContactMessage | null>(null);
-  // Estados para serviços
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [serviceForm, setServiceForm] = useState<{ name: string; description: string; local: string; category: string; price: number }>({
     name: "",
@@ -30,33 +30,35 @@ export default function AdminPanel() {
     category: "",
     price: 0,
   });
-  // Novo estado para controle do serviço a ser excluído
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [batchStart, setBatchStart] = useState("");
+  const [batchEnd, setBatchEnd] = useState("");
+  const [isBatching, setIsBatching] = useState(false);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [slotToDelete, setSlotToDelete] = useState<number|null>(null);
+  const [selectedSlotLocal, setSelectedSlotLocal] = useState<string>("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Todas as queries e mutations
   const { data: appointments, isLoading: appointmentsLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"],
   });
-
   const { data: messages, isLoading: messagesLoading } = useQuery<ContactMessage[]>({
     queryKey: ["/api/contact"],
   });
-
   const { data: slots, isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
     queryKey: [`/api/admin/slots/${selectedDate}`],
     enabled: activeTab === "schedule",
   });
-
-  // Serviços
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
     queryKey: ["/api/services"],
     enabled: activeTab === "services",
   });
 
   const createSlotMutation = useMutation({
-    mutationFn: async (data: { date: string; time: string; isAvailable: boolean }) => {
+    mutationFn: async (data: { date: string; time: string; isAvailable: boolean; local: string }) => {
       const response = await fetch("/api/admin/slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,7 +83,6 @@ export default function AdminPanel() {
       });
     },
   });
-
   const deleteSlotMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/admin/slots/${id}`, {
@@ -105,10 +106,8 @@ export default function AdminPanel() {
       });
     },
   });
-
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: number) => {
-      console.log("Tentando excluir agendamento id:", id); // Adicione este log
       await apiRequest("DELETE", `/api/appointments/${id}`);
     },
     onSuccess: () => {
@@ -133,7 +132,6 @@ export default function AdminPanel() {
       toast({ title: "Erro", description: "Falha ao excluir mensagem.", variant: "destructive" });
     },
   });
-
   const createServiceMutation = useMutation({
     mutationFn: async (data: typeof serviceForm) => {
       return await apiRequest("POST", "/api/services", data);
@@ -147,7 +145,6 @@ export default function AdminPanel() {
       toast({ title: "Erro", description: "Falha ao criar serviço.", variant: "destructive" });
     },
   });
-
   const updateServiceMutation = useMutation({
     mutationFn: async (data: Service) => {
       return await apiRequest("PUT", `/api/services/${data.id}`, data);
@@ -161,7 +158,6 @@ export default function AdminPanel() {
       toast({ title: "Erro", description: "Falha ao atualizar serviço.", variant: "destructive" });
     },
   });
-
   const deleteServiceMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/services/${id}`);
@@ -172,6 +168,30 @@ export default function AdminPanel() {
     },
     onError: () => {
       toast({ title: "Erro", description: "Falha ao excluir serviço.", variant: "destructive" });
+    },
+  });
+  const deleteAllSlotsMutation = useMutation({
+    mutationFn: async (date: string) => {
+      const response = await fetch(`/api/admin/slots?date=${date}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Falha ao apagar todos os horários do dia");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/slots/${selectedDate}`] });
+      setShowDeleteAllDialog(false);
+      toast({
+        title: "Horários apagados",
+        description: data?.message || "Todos os horários do dia foram removidos.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao apagar todos os horários do dia.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -189,12 +209,12 @@ export default function AdminPanel() {
     const [h, m] = timeStr.split(":").map(Number);
     const date = new Date(dateStr + 'T' + timeStr);
     // Aplica offset negativo para considerar antecedência
-    date.setMinutes(date.getMinutes() + offsetMin);
+    date.setMinutes(date.getMinutes() - offsetMin);
     return date < new Date();
   }
 
   const handleCreateSlot = () => {
-    if (!newSlotTime) return;
+    if (!newSlotTime || !selectedSlotLocal) return;
     // Impede adicionar horário que já passou
     if (isTimeInPast(selectedDate, newSlotTime)) {
       toast({
@@ -208,6 +228,7 @@ export default function AdminPanel() {
       date: selectedDate,
       time: newSlotTime,
       isAvailable: true,
+      local: selectedSlotLocal,
     });
   };
 
@@ -228,6 +249,32 @@ export default function AdminPanel() {
     }
     // eslint-disable-next-line
   }, [slots]);
+
+  if (editingAppointment) {
+    // Busca o serviço correspondente ao agendamento para obter o local
+    const service = (services || []).find(s => s.id === editingAppointment.serviceId);
+    return (
+      <div className="min-h-screen bg-cream">
+        <div className="max-w-4xl mx-auto py-12">
+          <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6 text-center">Editar Agendamento</h2>
+          <BookingSection
+            editData={{
+              ...editingAppointment,
+              id: editingAppointment.id,
+              local: service?.local || "",
+              notes: editingAppointment.notes ?? undefined
+            }}
+            onEditFinish={() => setEditingAppointment(null)}
+          />
+          <div className="flex justify-center mt-8">
+            <Button variant="outline" onClick={() => setEditingAppointment(null)}>
+              Cancelar edição
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -534,8 +581,7 @@ export default function AdminPanel() {
             <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6">
               Gerenciar Horários Disponíveis
             </h2>
-            
-            {/* Date Selector */}
+            {/* Date Selector + Batch */}
             <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
                 <div className="flex-1">
@@ -555,7 +601,86 @@ export default function AdminPanel() {
                     className="w-full"
                   />
                 </div>
-                
+                <div className="flex-1">
+                  <Label htmlFor="batchStart" className="text-sm font-medium text-charcoal mb-2 block">
+                    Início dos Atendimentos
+                  </Label>
+                  <Input
+                    id="batchStart"
+                    type="time"
+                    value={batchStart}
+                    onChange={e => setBatchStart(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="batchEnd" className="text-sm font-medium text-charcoal mb-2 block">
+                    Término dos Atendimentos
+                  </Label>
+                  <Input
+                    id="batchEnd"
+                    type="time"
+                    value={batchEnd}
+                    onChange={e => setBatchEnd(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="slotLocal" className="text-sm font-medium text-charcoal mb-2 block">
+                    Local do Horário
+                  </Label>
+                  <select
+                    id="slotLocal"
+                    value={selectedSlotLocal}
+                    onChange={e => setSelectedSlotLocal(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 p-2"
+                  >
+                    <option value="">Selecione o local</option>
+                    <option value="campo formoso">Campo Formoso</option>
+                    <option value="irece">Irecê</option>
+                  </select>
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (!batchStart || !batchEnd || !selectedSlotLocal) {
+                      toast({ title: "Preencha início, término e local", variant: "destructive" });
+                      return;
+                    }
+                    if (batchEnd <= batchStart) {
+                      toast({ title: "Término deve ser após o início", variant: "destructive" });
+                      return;
+                    }
+                    setIsBatching(true);
+                    // Gera horários de 1 em 1 hora, respeitando minutos do início
+                    let [h, m] = batchStart.split(":").map(Number);
+                    const [endH, endM] = batchEnd.split(":").map(Number);
+                    const times: string[] = [];
+                    while (h < endH || (h === endH && m < endM)) {
+                      // Pula o intervalo de 12:00 até 12:59
+                      if (!(h === 12)) {
+                        times.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+                      }
+                      // Soma 60 minutos
+                      m += 60;
+                      if (m >= 60) {
+                        h += Math.floor(m / 60);
+                        m = m % 60;
+                      }
+                    }
+                    for (const t of times) {
+                      await createSlotMutation.mutateAsync({ date: selectedDate, time: t, isAvailable: true, local: selectedSlotLocal });
+                    }
+                    setIsBatching(false);
+                    toast({ title: "Horários gerados!", description: `Foram criados ${times.length} horários.` });
+                  }}
+                  disabled={!batchStart || !batchEnd || !selectedSlotLocal || isBatching || createSlotMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+                >
+                  {isBatching ? "Gerando..." : "Gerar horários"}
+                </Button>
+              </div>
+              {/* Campo manual antigo */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end mt-4">
                 <div className="flex-1">
                   <Label htmlFor="time" className="text-sm font-medium text-charcoal mb-2 block">
                     Novo Horário
@@ -568,7 +693,6 @@ export default function AdminPanel() {
                     className="w-full"
                   />
                 </div>
-                
                 <Button
                   onClick={handleCreateSlot}
                   disabled={!newSlotTime || createSlotMutation.isPending}
@@ -582,9 +706,21 @@ export default function AdminPanel() {
 
             {/* Available Slots */}
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xl font-semibold text-charcoal mb-4">
-                Horários para {formatDate(selectedDate)}
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-charcoal">
+                  Horários para {formatDate(selectedDate)}
+                </h3>
+                {slots && slots.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteAllDialog(true)}
+                    className="ml-2"
+                  >
+                    Apagar todos do dia
+                  </Button>
+                )}
+              </div>
               
               {slotsLoading ? (
                 <div className="grid gap-2">
@@ -615,9 +751,8 @@ export default function AdminPanel() {
                             {slot.isAvailable ? "Disponível" : "Indisponível"}
                           </span>
                         </div>
-                        
                         <Button
-                          onClick={() => handleDeleteSlot(slot.id)}
+                          onClick={() => setSlotToDelete(slot.id)}
                           disabled={deleteSlotMutation.isPending}
                           variant="outline"
                           size="sm"
@@ -786,11 +921,11 @@ export default function AdminPanel() {
 
       {/* Modal de confirmação de exclusão */}
       <Dialog open={!!deleteType} onOpenChange={() => setDeleteType(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby="delete-confirm-desc">
           <DialogHeader>
             <DialogTitle>Confirmar exclusão</DialogTitle>
           </DialogHeader>
-          <p>Tem certeza que deseja excluir este {deleteType?.type === 'appointment' ? 'agendamento' : 'mensagem'}?</p>
+          <p id="delete-confirm-desc">Tem certeza que deseja excluir este {deleteType?.type === 'appointment' ? 'agendamento' : 'mensagem'}?</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteType(null)}>Cancelar</Button>
             <Button
@@ -809,11 +944,11 @@ export default function AdminPanel() {
 
       {/* Modal de confirmação para exclusão de serviço */}
       <Dialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby="delete-service-desc">
           <DialogHeader>
             <DialogTitle>Confirmar exclusão</DialogTitle>
           </DialogHeader>
-          <p>Tem certeza que deseja excluir o serviço <b>{serviceToDelete?.name}</b>?</p>
+          <p id="delete-service-desc">Tem certeza que deseja excluir o serviço <b>{serviceToDelete?.name}</b>?</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setServiceToDelete(null)}>Cancelar</Button>
             <Button
@@ -825,6 +960,38 @@ export default function AdminPanel() {
               disabled={deleteServiceMutation.isPending}
             >
               Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmação para apagar todos */}
+      <Dialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <DialogContent aria-describedby="delete-all-slots-desc">
+          <DialogHeader>
+            <DialogTitle>Apagar todos os horários do dia?</DialogTitle>
+          </DialogHeader>
+          <p id="delete-all-slots-desc">Tem certeza que deseja apagar <b>todos</b> os horários do dia {formatDate(selectedDate)}? Esta ação não pode ser desfeita.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteAllDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteAllSlotsMutation.mutate(selectedDate)} disabled={deleteAllSlotsMutation.isPending}>
+              Apagar todos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmação para apagar individual */}
+      <Dialog open={!!slotToDelete} onOpenChange={() => setSlotToDelete(null)}>
+        <DialogContent aria-describedby="delete-slot-desc">
+          <DialogHeader>
+            <DialogTitle>Apagar horário?</DialogTitle>
+          </DialogHeader>
+          <p id="delete-slot-desc">Tem certeza que deseja apagar este horário?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSlotToDelete(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => { if(slotToDelete) { deleteSlotMutation.mutate(slotToDelete); setSlotToDelete(null); } }} disabled={deleteSlotMutation.isPending}>
+              Apagar
             </Button>
           </DialogFooter>
         </DialogContent>

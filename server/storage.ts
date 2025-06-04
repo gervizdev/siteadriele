@@ -16,7 +16,7 @@ import {
   type InsertAdmin
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Services
@@ -41,7 +41,7 @@ export interface IStorage {
   getAvailableSlots(date: string): Promise<AvailableSlot[]>;
   updateSlotAvailability(id: number, isAvailable: boolean): Promise<void>;
   deleteAvailableSlot(id: number): Promise<void>;
-  getAvailableTimes(date: string): Promise<string[]>;
+  getAvailableTimes(date: string, local?: string): Promise<string[]>;
 
   // Admins
   getAdminByUsername(username: string): Promise<Admin | undefined>;
@@ -187,22 +187,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(availableSlots.id, id));
   }
 
-  async getAvailableTimes(date: string): Promise<string[]> {
+  async getAvailableTimes(date: string, local?: string): Promise<string[]> {
+    const condition = local
+      ? and(eq(availableSlots.date, date), eq(availableSlots.local, local))
+      : eq(availableSlots.date, date);
     const dbSlots = await db
       .select()
       .from(availableSlots)
-      .where(eq(availableSlots.date, date));
-    
-    const activeSlots = dbSlots.filter((slot: AvailableSlot) => slot.isAvailable);
-    const bookedTimes = await db
-      .select()
-      .from(appointments)
-      .where(eq(appointments.date, date));
-    
-    const bookedTimesList = bookedTimes.map(appointment => appointment.time);
-    
-    return activeSlots
-      .filter((slot: AvailableSlot) => !bookedTimesList.includes(slot.time))
+      .where(condition);
+
+    // Agora só retorna slots disponíveis
+    return dbSlots
+      .filter((slot: AvailableSlot) => slot.isAvailable)
       .map((slot: AvailableSlot) => slot.time)
       .sort();
   }

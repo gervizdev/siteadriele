@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useLocation } from "wouter";
+import { NAV_LINKS, isHomeSection } from "./navigation-links";
 
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [location, navigate] = useLocation();
+
+  // Detecta se está na home
+  const isHome = location === "/";
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -12,6 +18,20 @@ export default function Navigation() {
     setIsMobileMenuOpen(false);
   };
 
+  // Handler para navegação SPA ou scroll
+  const handleNav = (link: typeof NAV_LINKS[number]) => {
+    if (isHomeSection(link) && isHome) {
+      scrollToSection(link.section!);
+    } else if (isHomeSection(link)) {
+      navigate("/", { replace: false });
+      // Após navegação, scroll suave (delay para garantir render)
+      setTimeout(() => scrollToSection(link.section!), 100);
+    } else if (link.path) {
+      navigate(link.path);
+      setIsMobileMenuOpen(false);
+    }
+  };
+
   return (
     <nav className="bg-white shadow-sm fixed w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -19,46 +39,33 @@ export default function Navigation() {
           <div className="flex items-center">
             <h1 className="font-playfair text-2xl font-bold text-deep-rose">Adriele Martins Lash</h1>
           </div>
-          
           {/* Desktop Navigation */}
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
-              <button 
-                onClick={() => scrollToSection('home')}
-                className="text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Início
-              </button>
-              <button 
-                onClick={() => scrollToSection('services')}
-                className="text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Serviços
-              </button>
-              <button 
-                onClick={() => scrollToSection('booking')}
-                className="text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Agendamento
-              </button>
-              <button 
-                onClick={() => scrollToSection('contact')}
-                className="text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Contato
-              </button>
-              <a
-                href="/admin"
-                className="text-charcoal hover:text-deep-rose transition-colors font-semibold"
-              >
-                Painel Administrativo
-              </a>
+              {NAV_LINKS.map((link) =>
+                isHomeSection(link) ? (
+                  <button
+                    key={link.label}
+                    onClick={() => handleNav(link)}
+                    className="text-charcoal hover:text-deep-rose transition-colors"
+                  >
+                    {link.label}
+                  </button>
+                ) : (
+                  <button
+                    key={link.label}
+                    onClick={() => handleNav(link)}
+                    className={`text-charcoal hover:text-deep-rose transition-colors${link.admin ? " font-semibold" : ""}`}
+                  >
+                    {link.label}
+                  </button>
+                )
+              )}
             </div>
           </div>
-
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button 
+            <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-charcoal hover:text-deep-rose"
             >
@@ -66,41 +73,29 @@ export default function Navigation() {
             </button>
           </div>
         </div>
-
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
-              <button 
-                onClick={() => scrollToSection('home')}
-                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Início
-              </button>
-              <button 
-                onClick={() => scrollToSection('services')}
-                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Serviços
-              </button>
-              <button 
-                onClick={() => scrollToSection('booking')}
-                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Agendamento
-              </button>
-              <button 
-                onClick={() => scrollToSection('contact')}
-                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
-              >
-                Contato
-              </button>
-              <a
-                href="/admin"
-                className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors font-semibold"
-              >
-                Painel Administrativo
-              </a>
+              {NAV_LINKS.map((link) =>
+                isHomeSection(link) ? (
+                  <button
+                    key={link.label}
+                    onClick={() => handleNav(link)}
+                    className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
+                  >
+                    {link.label}
+                  </button>
+                ) : (
+                  <button
+                    key={link.label}
+                    onClick={() => handleNav(link)}
+                    className={`block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors${link.admin ? " font-semibold" : ""}`}
+                  >
+                    {link.label}
+                  </button>
+                )
+              )}
             </div>
           </div>
         )}

@@ -6,8 +6,11 @@ import BookingSection from "@/components/booking-section";
 import TestimonialsSection from "@/components/testimonials-section";
 import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
+import { useLocation } from "wouter";
 
 export default function Home() {
+  const [, navigate] = useLocation();
+
   return (
     <div className="min-h-screen bg-cream">
       <Navigation />

@@ -1,7 +1,7 @@
 import { createServer, type Server } from "http";
-import express, { Request, Response } from "express";
+import express, { Application, Request, Response } from "express";
 import { storage } from "./storage";
-import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema } from "@shared/schema";
+import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { MercadoPagoConfig, Preference } from "mercadopago"; // Importação direta do Preference para SDK v3
@@ -23,7 +23,8 @@ const mpClient = new MercadoPagoConfig({
   // mas a funcionalidade do MP NÃO funcionará corretamente sem um token válido.
 });
 
-export async function registerRoutes(app: express.Express): Promise<Server> { // Tipagem de 'app' como express.Express
+// ATENÇÃO: Tipagem 'any' para evitar conflito de sobrecarga do Express com handlers async no TypeScript
+export function registerRoutes(app: any): Server {
   // Get all services
   app.get("/api/services", async (req: Request, res: Response) => {
     try {
@@ -86,7 +87,36 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
       if (!dateRegex.test(date)) {
         return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
       }
-      const availableTimes = await storage.getAvailableTimes(date);
+
+      // Limpeza automática de slots passados e slots do dia seguinte que já completaram 24h
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().slice(0,5); // HH:MM
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      // Remove slots anteriores ao horário atual do dia de hoje
+      if (date === todayStr) {
+        const slotsHoje = await storage.getAvailableSlots(todayStr);
+        for (const slot of slotsHoje) {
+          if (slot.time < currentTime) {
+            await storage.deleteAvailableSlot(slot.id);
+          }
+        }
+      }
+      // Remove slots do dia seguinte que já completaram 24h (ou seja, slots com hora menor ou igual à hora atual)
+      if (date === tomorrowStr) {
+        const slotsAmanha = await storage.getAvailableSlots(tomorrowStr);
+        for (const slot of slotsAmanha) {
+          if (slot.time <= currentTime) {
+            await storage.deleteAvailableSlot(slot.id);
+          }
+        }
+      }
+
+      const { local } = req.query;
+      const availableTimes = await storage.getAvailableTimes(date, typeof local === 'string' ? local : undefined);
       res.json(availableTimes);
     } catch (error) {
       console.error("Error fetching available times:", error);
@@ -98,16 +128,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
-      const isAvailable = await storage.isTimeSlotAvailable(
-        validatedData.date,
-        validatedData.time
-      );
-      if (!isAvailable) {
-        return res.status(409).json({
-          message: "This time slot is no longer available. Please choose another time."
-        });
-      }
+      // NÃO checa mais isTimeSlotAvailable, assume que só pode agendar se o slot está disponível
       const appointment = await storage.createAppointment(validatedData);
+      // Marca o slot como indisponível
+      const slots = await storage.getAvailableSlots(validatedData.date);
+      const slot = slots.find(s => s.time === validatedData.time);
+      if (slot) {
+        await storage.updateSlotAvailability(slot.id, false);
+      }
       res.status(201).json({
         message: "Appointment created successfully",
         appointment,
@@ -158,14 +186,44 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
     }
   });
 
-  // Get appointments
+  // Get appointments (with optional email filter)
   app.get("/api/appointments", async (req: Request, res: Response) => {
     try {
-      const appointments = await storage.getAppointments();
+      const { email } = req.query;
+      let appointments;
+      if (email) {
+        const allAppointments = await storage.getAppointments();
+        const allServices = await storage.getServices();
+        appointments = allAppointments.filter(a => a.clientEmail === email);
+        // Corrige local vazio: se local não existir, tenta buscar pelo serviço
+        appointments = appointments.map(a => {
+          if (!(a as any).local && a.serviceId) {
+            const service = allServices.find((s: any) => s.id === a.serviceId);
+            return { ...a, local: service?.local || "" } as Appointment & { local: string };
+          }
+          return a;
+        });
+      } else {
+        appointments = await storage.getAppointments();
+      }
       res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Get appointment by id
+  app.get("/api/appointments/:id", async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: "ID inválido" });
+      const appointment = (await storage.getAppointments()).find(a => a.id === id);
+      if (!appointment) return res.status(404).json({ message: "Agendamento não encontrado" });
+      res.json(appointment);
+    } catch (error) {
+      console.error("Error fetching appointment by id:", error);
+      res.status(500).json({ message: "Failed to fetch appointment" });
     }
   });
 
@@ -187,7 +245,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
     }
   });
 
-    // Update contact message
+  // Update contact message
   app.put("/api/contact/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -296,6 +354,24 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
     }
   });
 
+  // Admin: Delete all slots for a given date
+  app.delete("/api/admin/slots", async (req: Request, res: Response) => {
+    try {
+      const { date } = req.query;
+      if (!date || typeof date !== "string") {
+        return res.status(400).json({ message: "Data não informada" });
+      }
+      const slots = await storage.getAvailableSlots(date);
+      for (const slot of slots) {
+        await storage.deleteAvailableSlot(slot.id);
+      }
+      res.json({ message: `Todos os horários de ${date} foram apagados.` });
+    } catch (error) {
+      console.error("Erro ao apagar todos os slots do dia:", error);
+      res.status(500).json({ message: "Erro ao apagar todos os horários do dia" });
+    }
+  });
+
   // Get testimonials (public)
   app.get("/api/testimonials", async (req: Request, res: Response) => {
     try {
@@ -316,93 +392,73 @@ export async function registerRoutes(app: express.Express): Promise<Server> { //
     }
   });
 
-  // Rota para criar preferência de pagamento Mercado Pago
-  app.post("/api/mercadopago", async (req: Request, res: Response) => {
+  // Rota para criar preferência de pagamento Mercado Pago (nova rota)
+  app.post("/api/pagamento", async (req: Request, res: Response) => {
     const { title, price, quantity, payer, bookingData } = req.body;
 
-     if (!payer || !payer.email || typeof payer.email !== 'string' || payer.email.trim() === "") {
-       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP sem email do pagador válido. Payer recebido:", payer);
-       return res.status(400).json({ error: "O email do pagador é obrigatório para processar o pagamento." });
-   }
+    if (!payer || !payer.email || typeof payer.email !== 'string' || payer.email.trim() === "") {
+      console.error("BACKEND VALIDATION: Tentativa de criar preferência MP sem email do pagador válido. Payer recebido:", payer);
+      return res.status(400).json({ error: "O email do pagador é obrigatório para processar o pagamento." });
+    }
 
-   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Regex simples para formato de email
-   if (!emailRegex.test(payer.email)) {
-       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP com email do pagador mal formatado:", payer.email);
-       return res.status(400).json({ error: "O formato do email do pagador é inválido." });
-   }
-   
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Regex simples para formato de email
+    if (!emailRegex.test(payer.email)) {
+      console.error("BACKEND VALIDATION: Tentativa de criar preferência MP com email do pagador mal formatado:", payer.email);
+      return res.status(400).json({ error: "O formato do email do pagador é inválido." });
+    }
     // Validação básica dos dados recebidos (adapte conforme necessidade)
     if (!title || typeof price !== 'number' || price <= 0 || typeof quantity !== 'number' || quantity <= 0 || !payer || !payer.email) {
-        return res.status(400).json({ error: "Dados inválidos para criar preferência de pagamento." });
+      return res.status(400).json({ error: "Dados inválidos para criar preferência de pagamento." });
     }
     if (!mpAccessToken) { // Verifica novamente se o token está carregado
-        console.error("Tentativa de criar preferência MP sem Access Token configurado.");
-        return res.status(500).json({ error: "Configuração do servidor de pagamento incompleta."});
+      console.error("Tentativa de criar preferência MP sem Access Token configurado.");
+      return res.status(500).json({ error: "Configuração do servidor de pagamento incompleta."});
     }
 
     try {
       const preference = new Preference(mpClient); // Usa a instância mpClient configurada globalmente
-
-      // **IMPORTANTE**: Certifique-se que `price` é o valor correto.
-      // Se o frontend envia `3000` para R$30,00 (centavos), então `price / 100` está correto.
-      // Se o frontend envia `30.00` para R$30,00, então use apenas `price`.
-      // Assumindo que o frontend envia em centavos (ex: 3000 para R$30,00)
       const unitPriceInReais = price / 100;
-
       const preferencePayload = {
         items: [{
-          id: String(bookingData?.serviceId || bookingData?.id || title.replace(/\s+/g, '-') + '-' + Date.now()), // ID do item, mais robusto
+          id: String(bookingData?.serviceId || bookingData?.id || title.replace(/\s+/g, '-') + '-' + Date.now()),
           title,
           unit_price: unitPriceInReais,
           quantity,
-          currency_id: 'BRL', // ESSENCIAL: Especificar a moeda
+          currency_id: 'BRL',
         }],
-        payer: { // Garante que o email do pagador é fornecido
-            email: payer.email,
-            name: payer.name, // Opcional, mas bom ter
-            // surname: payer.surname, // Opcional
-            // phone: { area_code: "XX", number: "YYYYYYYYY" }, // Opcional
-            // identification: { type: "CPF", number: "ZZZZZZZZZZZ" }, // Opcional, mas pode ser exigido
-            // address: { street_name: "Street", street_number: 123, zip_code: "01234567" } // Opcional
+        payer: {
+          email: payer.email,
+          name: payer.name,
         },
-        back_urls: { // Substitua pelas suas URLs de produção REAIS
-          success: `${process.env.YOUR_DOMAIN || 'http://localhost:3000'}/payment-success`, // Use variáveis de ambiente para o domínio
+        back_urls: {
+          success: `${process.env.YOUR_DOMAIN || 'http://localhost:3000'}/payment-success`,
           failure: `${process.env.YOUR_DOMAIN || 'http://localhost:3000'}/payment-failure`,
           pending: `${process.env.YOUR_DOMAIN || 'http://localhost:3000'}/payment-pending`
         },
-        auto_return: "approved" as "approved" | "all", // Tipagem para auto_return
-        notification_url: `${process.env.YOUR_NOTIFICATION_DOMAIN || 'https://seu-webhook-real.com'}/api/mercadopago/webhook`, // URL de webhook REAL e pública
-        external_reference: String(bookingData?.id || `booking-${Date.now()}`), // Referência externa para seu sistema
-        metadata: { bookingData } // Dados adicionais que você queira associar
+        auto_return: "approved" as "approved" | "all",
+        notification_url: `${process.env.YOUR_NOTIFICATION_DOMAIN || 'https://seu-webhook-real.com'}/api/mercadopago/webhook`,
+        external_reference: String(bookingData?.id || `booking-${Date.now()}`),
+        metadata: { bookingData }
       };
-
-      console.log("Criando preferência Mercado Pago com payload:", JSON.stringify(preferencePayload, null, 2));
+      console.log("Criando preferência Mercado Pago (rota /api/pagamento) com payload:", JSON.stringify(preferencePayload, null, 2));
       const result = await preference.create({ body: preferencePayload });
-
-      console.log("Preferência Mercado Pago criada:", JSON.stringify(result, null, 2));
+      console.log("Preferência Mercado Pago criada (rota /api/pagamento):", JSON.stringify(result, null, 2));
       res.json({ preference_id: result.id, init_point: result.init_point });
-
-    } catch (err: any) { // Tipar err como any para acessar propriedades dinâmicas
+    } catch (err: any) {
       console.error("-----------------------------------------------------");
-      console.error("Erro ao criar preferência Mercado Pago:");
-      salvarLogMercadoPago(err); // Função de log que você já tem
-
-      // Tenta extrair a mensagem de erro da API do Mercado Pago se disponível
+      console.error("Erro ao criar preferência Mercado Pago (rota /api/pagamento):");
+      salvarLogMercadoPago(err);
       let errorMessage = "Erro desconhecido ao criar preferência de pagamento.";
       let errorDetails = err;
-
       if (err.cause && Array.isArray(err.cause) && err.cause.length > 0) {
-        // O SDK v3 pode retornar 'cause' como um array de erros
         errorMessage = err.cause.map((c: any) => `${c.code}: ${c.description}`).join('; ');
         errorDetails = err.cause;
       } else if (err.response && err.response.data && err.response.data.message) {
-        // Estrutura de erro comum em APIs
         errorMessage = err.response.data.message;
         errorDetails = err.response.data;
       } else if (err.message) {
         errorMessage = err.message;
       }
-
       res.status(err.status || 500).json({
         error: "Falha ao criar preferência de pagamento",
         message: errorMessage,

@@ -9,6 +9,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import type { Service } from "@shared/schema";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
+import { useLocation } from "wouter";
 // Popover não está sendo usado, mas vou manter caso seja para uso futuro.
 // import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { QuestionMarkIcon } from "./ui/question-mark-icon";
@@ -47,6 +48,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   const { toast } = useToast();
   const [waitingPayment, setWaitingPayment] = useState(false);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [, navigate] = useLocation();
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
     queryKey: ["/api/services"],
@@ -146,58 +148,6 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   );
 
 
-  async function handleMercadoPagoPayment(data: BookingFormData) {
-    try {
-      // Usa o totalPrice dos serviços selecionados, se não, o preço do serviço principal do formulário.
-      // Para adiantamento, o preço é fixo (3000), então o title pode ser mais genérico.
-      const paymentTitle = `Adiantamento Agendamento: ${
-        Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(', ') || data.serviceName
-      }`;
-
-      const response = await fetch("/api/mercadopago", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: paymentTitle,
-          price: 3000, // Valor fixo do adiantamento
-          quantity: 1,
-          payer: {
-            name: data.clientName,
-            email: data.clientEmail,
-          },
-          bookingData: {
-            ...data,
-            serviceName: Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(', '), // Envia todos os nomes
-            servicePrice: totalPrice, // Envia o preço total
-          }
-        }),
-      });
-      if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ message: "Erro ao criar pagamento. Sem detalhes."}));
-        throw new Error(errorResult.message || "Erro ao criar pagamento");
-      }
-      const result = await response.json();
-      if (result.preference_id) {
-        setPreferenceId(result.preference_id);
-        setWaitingPayment(true);
-        return true;
-      } else if (result.init_point) {
-        window.location.href = result.init_point;
-        return true;
-      } else {
-        throw new Error("Resposta inválida do backend do Mercado Pago");
-      }
-    } catch (e: any) {
-      toast({
-        title: "Erro ao iniciar pagamento",
-        description: e.message || "Tente novamente ou entre em contato.",
-        variant: "destructive",
-      });
-      setWaitingPayment(false);
-      return false;
-    }
-  }
-
   useEffect(() => {
   console.log("MP useEffect triggered. waitingPayment:", waitingPayment, "preferenceId:", preferenceId, "MP SDK:", typeof (window as any).MercadoPago);
   if (waitingPayment && preferenceId && (window as any).MercadoPago) {
@@ -228,7 +178,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       }
       console.log("MP useEffect: 'wallet_container' found.", walletContainerElement);
 
-      bricksBuilder.create("wallet", "wallet_container", { // Usando a string "wallet_container" aqui
+      bricksBuilder.create("wallet", "wallet_container", {
         initialization: {
           preferenceId: preferenceId,
         },
@@ -240,12 +190,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
         callbacks: {
           onReady: () => {
             console.log("MP Brick: onReady - Brick está pronto.");
-            // --- INÍCIO DA LÓGICA DE SCROLL ---
-            if (walletContainerElement) { // Verifica se o elemento ainda existe
-              console.log("Scrolling to wallet_container.");
-              walletContainerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            // --- FIM DA LÓGICA DE SCROLL ---
+            // Scroll removido daqui para evitar rolagem dupla
           },
           onSubmit: () => { console.log("MP Brick: onSubmit - Usuário submeteu o pagamento."); },
           onError: (error: any) => {
@@ -279,19 +224,17 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   }
 }, [waitingPayment, preferenceId, toast]); // As dependências estão corretas
   const handleBookingSubmit = async (data: BookingFormData) => {
-    const isAdiantamento = hasCiliosIrece; // Usando a variável mais precisa
-
-    // Atualiza data com o preço total e nomes de todos os serviços selecionados
+    const isAdiantamento = hasCiliosIrece;
     const finalBookingData = {
       ...data,
       serviceName: Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(', ') || data.serviceName,
       servicePrice: totalPrice || data.servicePrice,
     };
-
-
     if (isAdiantamento) {
       toast({ title: "Redirecionando para pagamento..." });
-      await handleMercadoPagoPayment(finalBookingData);
+      // Salva os dados no sessionStorage para a página de pagamento
+      sessionStorage.setItem("bookingData", JSON.stringify(finalBookingData));
+      navigate("/pagamento");
       return;
     }
 
@@ -368,48 +311,44 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
   const disabledDays = { before: startOfDay(new Date()) };
 
-  const servicesCampoFormoso = services?.filter(s => s.local?.toLowerCase() === "campo formoso");
+  // Corrigido nome da variável: agora apenas 'servicesCampo'
+  const servicesCampo = services?.filter(s => s.local?.toLowerCase() === "campo formoso");
   const servicesIrece = services?.filter(s => s.local?.toLowerCase() === "irece");
 
   let activeServicesForGrouping: Service[] | undefined = undefined;
   if (selectedLocal.toLowerCase() === "irece") {
     activeServicesForGrouping = servicesIrece;
   } else if (selectedLocal.toLowerCase() === "campo formoso") {
-    activeServicesForGrouping = servicesCampoFormoso;
+    activeServicesForGrouping = servicesCampo;
   }
 
+  // Ordem fixa desejada das categorias
+  const categoryOrder = ["cílios", "sobrancelha", "depilação"];
+
+  // Agrupa e ordena as categorias conforme a ordem fixa
   const groupedServices = (activeServicesForGrouping || []).reduce((acc, service) => {
     acc[service.category] = acc[service.category] || [];
     acc[service.category].push(service);
     return acc;
   }, {} as Record<string, Service[]>);
 
+  const orderedCategories = categoryOrder.filter(cat => groupedServices[cat] && groupedServices[cat].length > 0);
+
   useEffect(() => {
-    if (editData) {
+    if (editData && services && services.length > 0) {
       setIsEditing(true);
       setSelectedLocal(editData.local);
-      // Simular seleção de serviços se houver nomes múltiplos ou para popular groupedServices corretamente
-      // Esta parte é complexa pois editData tem um único serviceId/Name/Price
-      // Precisamos reconstruir selectedServices se possível.
-      // Por simplicidade, vamos setar o primeiro serviço como em handleServiceSelect
-      // e o usuário ajusta se for um agendamento com múltiplos serviços.
-      const serviceToEdit = services?.find(s => s.id === editData.serviceId && s.local?.toLowerCase() === editData.local.toLowerCase());
-      if(serviceToEdit) {
+      // Reconstrói selectedServices a partir do local e serviceId
+      const serviceToEdit = services.find(s => s.id === editData.serviceId && s.local?.toLowerCase() === editData.local.toLowerCase());
+      if (serviceToEdit) {
         setSelectedServices({ [serviceToEdit.category]: serviceToEdit });
         setSelectedService(serviceToEdit);
       } else {
-        // Fallback se o serviço não for encontrado (pode ter sido excluído ou local mudado)
-         setSelectedService({
-            id: editData.serviceId, name: editData.serviceName, price: editData.servicePrice,
-            description: '', category: 'Desconhecida', local: editData.local,
-        });
-        setSelectedServices({}); // Limpa para evitar inconsistências
+        setSelectedService(null);
+        setSelectedServices({});
       }
-
-      setSelectedDate(editData.date ? new Date(new Date(editData.date).valueOf() + new Date().getTimezoneOffset() * 60 * 1000) : undefined); // Ajuste de timezone para exibir data correta no calendário
+      setSelectedDate(editData.date ? new Date(new Date(editData.date).valueOf() + new Date().getTimezoneOffset() * 60 * 1000) : undefined);
       setSelectedTime(editData.time);
-      // setSelectedCategory(''); // Não usado ativamente
-
       setValue("serviceId", editData.serviceId);
       setValue("serviceName", editData.serviceName);
       setValue("servicePrice", editData.servicePrice);
@@ -422,32 +361,54 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       setValue("isFirstTime", editData.isFirstTime);
       setValue("notes", editData.notes || "");
     }
-  }, [editData, setValue, services]);
+  }, [editData, services, setValue]);
 
   if (waitingPayment) {
+    // Nova página de resumo e pagamento (sem botão redundante)
     return (
       <section id="booking" className="py-20 bg-cream">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-white rounded-3xl shadow-xl p-8">
-            <h2 className="font-playfair text-3xl font-bold text-charcoal mb-4">Pagamento Antecipado</h2>
-            <p className="text-lg text-gray-700 mb-6">
-              Para confirmar seu agendamento, realize o pagamento do adiantamento via Mercado Pago.<br />
-              Após o pagamento ser aprovado, seu agendamento será confirmado automaticamente.<br />
-              Você receberá uma confirmação por WhatsApp ou e-mail.
-            </p>
-            <div id="wallet_container" className="my-6 flex justify-center" />
-            <p className="mt-6 text-sm text-gray-500">Não feche esta janela até finalizar o pagamento.</p>
-             <button
-                onClick={() => {
-                    setWaitingPayment(false);
-                    setPreferenceId(null);
-                    // Considerar resetar mais estados ou levar para a tela de agendamento
-                }}
-                className="mt-4 px-4 py-2 bg-gray-200 text-charcoal rounded-lg hover:bg-gray-300"
+          <div className="bg-white rounded-3xl shadow-xl p-8 flex flex-col justify-center" style={{ minHeight: '700px' }}>
+            <h2 className="font-playfair text-3xl font-bold text-charcoal mb-4">Resumo do Agendamento</h2>
+            <div className="mb-6 text-left mx-auto max-w-md">
+              <p className="mb-2"><b>Serviços:</b> {Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(", ")}</p>
+              <p className="mb-2"><b>Local:</b> {selectedLocal.charAt(0).toUpperCase() + selectedLocal.slice(1)}</p>
+              <p className="mb-2"><b>Data:</b> {selectedDate ? format(selectedDate, "dd/MM/yyyy") : ""}</p>
+              <p className="mb-2"><b>Horário:</b> {selectedTime}</p>
+              <p className="mb-2"><b>Cliente:</b> {watch("clientName")} ({watch("clientEmail")})</p>
+              <p className="mb-2"><b>Preço Total:</b> R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}</p>
+              {hasCiliosIrece && (
+                <div className="mt-2 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs">
+                  Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ 30,00</b>. O restante será pago no local.
+                </div>
+              )}
+            </div>
+            {/* Brick Mercado Pago aparece automaticamente */}
+            <div>
+              <div id="wallet_container" className="my-6 flex justify-center" />
+              <p className="mt-6 text-sm text-gray-500">Não feche esta janela até finalizar o pagamento.</p>
+            </div>
+            <button
+              onClick={() => {
+                setWaitingPayment(false);
+                setPreferenceId(null);
+              }}
+              className="mt-2 px-4 py-2 bg-gray-200 text-charcoal rounded-lg hover:bg-gray-300"
             >
-                Cancelar Pagamento e Voltar
+              Voltar e Editar Dados
             </button>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (isEditing && (!editData || !services || services.length === 0)) {
+    return (
+      <section className="py-20 bg-cream min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
+          <h2 className="font-playfair text-2xl font-bold text-charcoal mb-4">Carregando dados do agendamento...</h2>
+          <p className="text-gray-500">Aguarde, estamos preparando o formulário de edição.</p>
         </div>
       </section>
     );
@@ -517,30 +478,31 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
               <div className="mt-8" id="servico-combobox">
                 <label className="block text-lg font-semibold text-charcoal mb-4">2. Selecione o(s) Serviço(s) <span className="text-sm font-normal">(até 3)</span></label>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.keys(groupedServices).map((category) => (
+                  {orderedCategories.map((category) => (
                     <div key={category} className="flex flex-col">
                       <span className="font-semibold mb-2 text-base">{category.charAt(0).toUpperCase() + category.slice(1)}</span>
                       <select
                         className="w-full p-4 border border-gray-200 rounded-xl focus:outline-none focus:border-rose-primary transition-colors"
-                        value={selectedServices[category]?.id || ''}
+                        value={selectedServices[category] && typeof selectedServices[category] === 'object' && 'id' in selectedServices[category] ? selectedServices[category]?.id : ''}
                         onChange={e => {
                           const id = Number(e.target.value);
-                          const totalSelected = Object.values(selectedServices).filter(s => s && s.category !== category).length;
-
-                          if (id && totalSelected >= 2 && !selectedServices[category]) { // Verifica se já tem 2 de OUTRAS categorias e está tentando adicionar um NOVO
-                              toast({ title: "Limite de serviços", description: "Você pode selecionar no máximo 3 serviços no total.", variant: "default"});
-                              e.target.value = selectedServices[category]?.id || ''; // Reverte a seleção
-                              return;
+                          // Novo cálculo: quantos serviços ficariam selecionados APÓS a escolha
+                          const alreadySelected = Object.values(selectedServices).filter(Boolean).length;
+                          const isAddingNew = id && !selectedServices[category];
+                          const newTotal = isAddingNew ? alreadySelected + 1 : alreadySelected;
+                          if (id && newTotal > 3) {
+                            toast({ title: "Limite de serviços", description: "Você pode selecionar no máximo 3 serviços no total.", variant: "default" });
+                            // Reverte seleção
+                            if (selectedServices[category] && typeof selectedServices[category] === 'object' && 'id' in selectedServices[category]) {
+                              const service = selectedServices[category] as Service;
+                              e.target.value = String(service.id);
+                            } else {
+                              e.target.value = '';
+                            }
+                            return;
                           }
-                          if (id && Object.values(selectedServices).filter(Boolean).length >=3 && !selectedServices[category]) {
-                              toast({ title: "Limite de serviços", description: "Você pode selecionar no máximo 3 serviços no total.", variant: "default"});
-                              e.target.value = selectedServices[category]?.id || ''; // Reverte a seleção
-                              return;
-                          }
-
                           const service = groupedServices?.[category]?.find(s => s.id === id);
                           handleServiceSelect(service || null, category);
-
                           // Auto-scroll
                           setTimeout(() => {
                             const allCombos = Array.from(document.querySelectorAll('#servico-combobox select')) as HTMLSelectElement[];
@@ -548,7 +510,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                             if (allCombos[currentIdx + 1]) {
                               allCombos[currentIdx + 1].focus();
                               allCombos[currentIdx + 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            } else if (Object.values(selectedServices).some(s => s !== null) || (service !== null && service !== undefined) ) { // Se algo foi selecionado
+                            } else if (Object.values(selectedServices).some(s => s !== null) || (service !== null && service !== undefined) ) {
                               const calendarEl = document.getElementById('calendar-booking');
                               if (calendarEl) calendarEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
@@ -582,24 +544,26 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
             {selectedLocal && Object.values(selectedServices).filter(Boolean).length > 0 && (
               <div id="calendar-booking" className="mt-8">
                 <label className="block text-lg font-semibold text-charcoal mb-4">3. Escolha a Data</label>
-                <div className="bg-warm-gray rounded-xl p-6 flex justify-center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={date => {
-                      handleDateSelect(date);
-                      if (date) {
-                        setTimeout(() => {
-                          const el = document.getElementById('horario-disponivel');
-                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 100);
-                      }
-                    }}
-                    disabled={disabledDays}
-                    fromDate={new Date()}
-                    toDate={addDays(new Date(), 60)}
-                    className="rounded-md"
-                  />
+                <div className="flex justify-center">
+                  <div className="bg-warm-gray rounded-2xl p-8 md:p-12 flex justify-center w-full max-w-lg shadow-lg">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={date => {
+                        handleDateSelect(date);
+                        if (date) {
+                          setTimeout(() => {
+                            const el = document.getElementById('horario-disponivel');
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 100);
+                        }
+                      }}
+                      disabled={disabledDays}
+                      fromDate={new Date()}
+                      toDate={addDays(new Date(), 60)}
+                      className="rounded-xl w-full min-w-[320px] max-w-lg text-base"
+                    />
+                  </div>
                 </div>
                 {errors.date && (
                   <p className="text-red-600 text-sm mt-2">{errors.date.message}</p>
