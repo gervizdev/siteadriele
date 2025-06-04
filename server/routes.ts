@@ -1,7 +1,7 @@
 import { createServer, type Server } from "http";
 import express, { Application, Request, Response } from "express";
 import { storage } from "./storage.js";
-import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment } from "@shared/schema";
+import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment } from "../shared/schema.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { MercadoPagoConfig, Preference } from "mercadopago"; // Importação direta do Preference para SDK v3
