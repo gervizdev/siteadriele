@@ -95,18 +95,23 @@ export function registerRoutes(app: any): Server {
       const todayStr = formatTz(nowBahia, "yyyy-MM-dd", { timeZone: TIMEZONE });
       const currentTime = formatTz(nowBahia, "HH:mm", { timeZone: TIMEZONE });
 
-      // Remove slots anteriores ao horário atual do dia de hoje
-      if (date === todayStr) {
-        const slotsHoje = await storage.getAvailableSlots(todayStr);
-        for (const slot of slotsHoje) {
-          if (slot.time < currentTime) {
-            await storage.deleteAvailableSlot(slot.id);
-          }
-        }
-      }
+      // Restringe horários disponíveis para 24h de antecedência
+      const minDateTime = new Date(nowBahia.getTime() + 24 * 60 * 60 * 1000); // 24h depois do agora
+      const minDateStr = formatTz(minDateTime, "yyyy-MM-dd", { timeZone: TIMEZONE });
+      const minTimeStr = formatTz(minDateTime, "HH:mm", { timeZone: TIMEZONE });
 
       const { local } = req.query;
-      const availableTimes = await storage.getAvailableTimes(date, typeof local === 'string' ? local : undefined);
+      let availableTimes = await storage.getAvailableTimes(date, typeof local === 'string' ? local : undefined);
+
+      // Se a data for igual à data mínima, filtra horários menores que a hora mínima
+      if (date === minDateStr) {
+        availableTimes = availableTimes.filter(time => time >= minTimeStr);
+      }
+      // Se a data for menor que a data mínima, não retorna horários
+      if (date < minDateStr) {
+        availableTimes = [];
+      }
+
       res.json(availableTimes);
     } catch (error) {
       console.error("Error fetching available times:", error);
