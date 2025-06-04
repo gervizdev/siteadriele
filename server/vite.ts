@@ -1,9 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-//
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 import { fileURLToPath } from "url";
 
@@ -23,10 +21,12 @@ export function log(message: string, source = "express") {
 
 export async function setupVite(app: Express, server: Server) {
   if (process.env.NODE_ENV === "development") {
-    // Importa Vite dinamicamente só em dev
+    // Importa Vite e viteConfig dinamicamente só em dev
     const viteModule = await import("vite");
+    const viteConfigModule = await import("../vite.config.ts");
     const createViteServer = viteModule.createServer;
     const viteLogger = viteModule.createLogger();
+    const viteConfig = viteConfigModule.default;
 
     const serverOptions = {
       middlewareMode: true,
