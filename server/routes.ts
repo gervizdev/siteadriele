@@ -1,7 +1,7 @@
 import { createServer, type Server } from "http";
 import express, { Application, Request, Response } from "express";
 import { storage } from "./storage.js";
-import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment } from "../shared/schema.js";
+import { insertAppointmentSchema, insertContactMessageSchema, insertAvailableSlotSchema, Appointment, insertAdminPushSubscriptionSchema } from "../shared/schema.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { MercadoPagoConfig, Preference } from "mercadopago"; // Importação direta do Preference para SDK v3
@@ -527,26 +527,51 @@ export function registerRoutes(app: any): Server {
   // Armazenamento simples da subscription do admin (em memória para início)
   let adminPushSubscription: any = null;
 
-  // Endpoint para salvar a subscription do admin
-  app.post("/api/admin-push-subscription", (req: Request, res: Response) => {
-    adminPushSubscription = req.body;
-    res.status(201).json({ message: "Subscription salva com sucesso" });
+  // Endpoint para salvar a subscription do admin (agora no banco)
+  app.post("/api/admin-push-subscription", async (req: Request, res: Response) => {
+    try {
+      const { endpoint, keys, username } = req.body;
+      if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+        return res.status(400).json({ message: "Dados de subscription incompletos" });
+      }
+      // username pode ser passado no body, ou usar 'admin' padrão
+      const sub = insertAdminPushSubscriptionSchema.parse({
+        username: username || "admin",
+        endpoint,
+        keys_p256dh: keys.p256dh,
+        keys_auth: keys.auth,
+      });
+      await storage.addAdminPushSubscription(sub);
+      res.status(201).json({ message: "Subscription salva com sucesso" });
+    } catch (err) {
+      res.status(400).json({ message: "Erro ao salvar subscription", error: String(err) });
+    }
   });
 
-  // Função utilitária para enviar push notification ao admin
+  // Função utilitária para enviar push notification a todos os admins
   async function sendPushToAdmin(notification: { title: string; body: string; url?: string }) {
-    if (!adminPushSubscription) return;
-    try {
-      await webpush.sendNotification(
-        adminPushSubscription,
-        JSON.stringify({
-          title: notification.title,
-          body: notification.body,
-          url: notification.url,
-        })
-      );
-    } catch (err) {
-      console.error("Erro ao enviar push notification ao admin:", err);
+    const subs = await storage.getAllAdminPushSubscriptions();
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
+          },
+          JSON.stringify({
+            title: notification.title,
+            body: notification.body,
+            url: notification.url,
+          })
+        );
+      } catch (err) {
+        // Se subscription inválida, remove do banco
+        const error: any = err;
+        if (error && (error.statusCode === 410 || error.statusCode === 404)) {
+          await storage.deleteAdminPushSubscriptionByEndpoint(sub.endpoint);
+        }
+        console.error("Erro ao enviar push notification ao admin:", err);
+      }
     }
   }
 

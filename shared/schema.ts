@@ -51,6 +51,16 @@ export const admins = pgTable("admins", {
   passwordHash: text("password_hash").notNull(),
 });
 
+// Nova tabela para subscriptions push dos admins
+export const adminPushSubscriptions = pgTable("admin_push_subscriptions", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull(), // pode ser email ou username do admin
+  endpoint: text("endpoint").notNull().unique(),
+  keys_p256dh: text("keys_p256dh").notNull(),
+  keys_auth: text("keys_auth").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
 });
@@ -74,6 +84,11 @@ export const insertAdminSchema = createInsertSchema(admins).omit({
   id: true,
 });
 
+export const insertAdminPushSubscriptionSchema = createInsertSchema(adminPushSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Appointment = typeof appointments.$inferSelect;
@@ -84,3 +99,5 @@ export type AvailableSlot = typeof availableSlots.$inferSelect;
 export type InsertAvailableSlot = z.infer<typeof insertAvailableSlotSchema>;
 export type Admin = typeof admins.$inferSelect;
 export type InsertAdmin = typeof admins.$inferInsert;
+export type AdminPushSubscription = typeof adminPushSubscriptions.$inferSelect;
+export type InsertAdminPushSubscription = z.infer<typeof insertAdminPushSubscriptionSchema>;

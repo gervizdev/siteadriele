@@ -4,6 +4,7 @@ import {
   contactMessages,
   availableSlots,
   admins,
+  adminPushSubscriptions,
   type Service, 
   type InsertService,
   type Appointment, 
@@ -13,7 +14,9 @@ import {
   type AvailableSlot,
   type InsertAvailableSlot,
   type Admin,
-  type InsertAdmin
+  type InsertAdmin,
+  type AdminPushSubscription,
+  type InsertAdminPushSubscription
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and } from "drizzle-orm";
@@ -46,6 +49,11 @@ export interface IStorage {
   // Admins
   getAdminByUsername(username: string): Promise<Admin | undefined>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
+
+  // Admin Push Subscriptions
+  addAdminPushSubscription(sub: InsertAdminPushSubscription): Promise<AdminPushSubscription>;
+  getAllAdminPushSubscriptions(): Promise<AdminPushSubscription[]>;
+  deleteAdminPushSubscriptionByEndpoint(endpoint: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -217,6 +225,22 @@ export class DatabaseStorage implements IStorage {
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
     const [newAdmin] = await db.insert(admins).values(admin).returning();
     return newAdmin;
+  }
+
+  // Admin Push Subscriptions
+  async addAdminPushSubscription(sub: InsertAdminPushSubscription): Promise<AdminPushSubscription> {
+    // Remove duplicadas pelo endpoint antes de inserir
+    await db.delete(adminPushSubscriptions).where(eq(adminPushSubscriptions.endpoint, sub.endpoint));
+    const [created] = await db.insert(adminPushSubscriptions).values(sub).returning();
+    return created;
+  }
+
+  async getAllAdminPushSubscriptions(): Promise<AdminPushSubscription[]> {
+    return await db.select().from(adminPushSubscriptions);
+  }
+
+  async deleteAdminPushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+    await db.delete(adminPushSubscriptions).where(eq(adminPushSubscriptions.endpoint, endpoint));
   }
 }
 

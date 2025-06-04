@@ -717,7 +717,7 @@ export default function AdminPanel() {
                     const times: string[] = [];
                     while (h < endH || (h === endH && m <= endM)) {
                       // Pula o intervalo de 12:00 até 13:59
-                      if (!(h === 12 || h === 13)) {
+                      if (!(h === 12 || h === 13 || (h === 14 && m === 0))) {
                         times.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
                       }
                       // Soma 60 minutos
