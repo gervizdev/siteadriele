@@ -48,11 +48,16 @@ const TELEGRAM_CHAT_IDS = process.env.TELEGRAM_CHAT_ID
   : [];
 
 async function sendTelegramToAdmin(message: string) {
-  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_CHAT_IDS.length === 0) return;
+  console.log("[TELEGRAM] Tentando enviar mensagem para admins:", TELEGRAM_CHAT_IDS);
+  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_CHAT_IDS.length === 0) {
+    console.error("[TELEGRAM] Token ou chat_ids não definidos");
+    return;
+  }
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   for (const chat_id of TELEGRAM_CHAT_IDS) {
     try {
-      await fetch(url, {
+      console.log(`[TELEGRAM] Enviando para chat_id: ${chat_id}`);
+      const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,8 +66,10 @@ async function sendTelegramToAdmin(message: string) {
           parse_mode: "Markdown"
         })
       });
+      const data = await resp.json();
+      console.log(`[TELEGRAM] Resposta do Telegram para chat_id ${chat_id}:`, data);
     } catch (err) {
-      console.error(`Erro ao enviar mensagem para o Telegram (chat_id: ${chat_id}):`, err);
+      console.error(`[TELEGRAM] Erro ao enviar mensagem para o Telegram (chat_id: ${chat_id}):`, err);
     }
   }
 }
@@ -174,17 +181,25 @@ export function registerRoutes(app: any): Server {
       if (slot) {
         await storage.updateSlotAvailability(slot.id, false);
       }
-      // Após criar o agendamento, dispara push notification e Telegram
-      await sendPushToAdmin({
-        title: "Novo agendamento recebido!",
-        body: `Cliente: ${validatedData.clientName} | Serviço: ${validatedData.serviceName} | Data: ${validatedData.date} ${validatedData.time}`,
-        url: "/admin"
-      });
+      // Após criar o agendamento, dispara apenas Telegram (remove push notification)
+      // Busca o local do serviço pelo serviceId
+      let local = '-';
+      try {
+        const service = await storage.getService(validatedData.serviceId);
+        if (service && service.local) local = service.local;
+      } catch (e) {
+        console.error('Erro ao buscar local do serviço para notificação Telegram:', e);
+      }
       await sendTelegramToAdmin(
-        `*Novo agendamento:*
-Cliente: ${validatedData.clientName}
-Serviço: ${validatedData.serviceName}
-Data: ${validatedData.date} ${validatedData.time}`
+        `*Novo agendamento recebido!*
+\n*Cliente:* ${validatedData.clientName}
+*E-mail:* ${validatedData.clientEmail}
+*Telefone:* ${validatedData.clientPhone || '-'}
+*Serviço:* ${validatedData.serviceName}
+*Data:* ${validatedData.date}
+*Horário:* ${validatedData.time}
+*Local:* ${local}
+${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       );
       res.status(201).json({
         message: "Appointment created successfully",
