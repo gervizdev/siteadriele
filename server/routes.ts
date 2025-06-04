@@ -628,6 +628,60 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
     res.json({ publicKey: VAPID_PUBLIC_KEY });
   });
 
+  // Webhook Mercado Pago: recebe notificações de pagamento
+  app.post("/api/mercadopago/webhook", async (req: Request, res: Response) => {
+    try {
+      // Mercado Pago pode enviar notificações como x-www-form-urlencoded ou JSON
+      const body = req.body || {};
+      // O Mercado Pago pode enviar notificações de diferentes tipos (payment, merchant_order, etc)
+      // O mais comum é receber um 'topic' e um 'id' (ex: payment, merchant_order)
+      const topic = body.topic || req.query.topic;
+      const paymentId = body.id || req.query.id;
+      // Para debug
+      console.log("[MP WEBHOOK] Recebido:", JSON.stringify(body), req.query);
+
+      // Se for notificação de pagamento
+      if ((topic === 'payment' || body.type === 'payment') && paymentId) {
+        // Buscar detalhes do pagamento na API do Mercado Pago
+        const mpToken = process.env.MP_ACCESS_TOKEN;
+        const url = `https://api.mercadopago.com/v1/payments/${paymentId}`;
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${mpToken}` }
+        });
+        const payment = await resp.json();
+        console.log("[MP WEBHOOK] Detalhes do pagamento:", payment);
+        if (payment.status === 'approved' && payment.metadata && payment.metadata.bookingData) {
+          const bookingData = payment.metadata.bookingData;
+          // Busca o local do serviço pelo serviceId, se necessário
+          let local = bookingData.local || '-';
+          if (!local && bookingData.serviceId) {
+            try {
+              const service = await storage.getService(bookingData.serviceId);
+              if (service && service.local) local = service.local;
+            } catch (e) {
+              console.error('Erro ao buscar local do serviço para notificação Telegram (webhook):', e);
+            }
+          }
+          await sendTelegramToAdmin(
+            `*Pagamento aprovado! Novo agendamento confirmado:*
+*Cliente:* ${bookingData.clientName}
+*E-mail:* ${bookingData.clientEmail}
+*Telefone:* ${bookingData.clientPhone || '-'}
+*Serviço:* ${bookingData.serviceName}
+*Data:* ${bookingData.date}
+*Horário:* ${bookingData.time}
+*Local:* ${local}
+${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
+          );
+        }
+      }
+      res.status(200).json({ received: true });
+    } catch (err) {
+      console.error('[MP WEBHOOK] Erro ao processar webhook:', err);
+      res.status(500).json({ error: 'Erro ao processar webhook' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
