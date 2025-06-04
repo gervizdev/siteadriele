@@ -256,6 +256,60 @@ export default function AdminPanel() {
     // eslint-disable-next-line
   }, [slots]);
 
+  // --- PUSH NOTIFICATION ADMIN ---
+  useEffect(() => {
+    // Só registra se estiver no painel admin
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    let registration: ServiceWorkerRegistration;
+    let vapidKey: string;
+    fetch('/api/push-public-key')
+      .then(res => res.json())
+      .then(data => {
+        vapidKey = data.publicKey;
+        return navigator.serviceWorker.register('/admin-sw.js');
+      })
+      .then(reg => {
+        registration = reg;
+        return registration.pushManager.getSubscription();
+      })
+      .then(async (subscription) => {
+        if (!subscription) {
+          // Solicita permissão e faz subscribe
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+          const newSub = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          });
+          await fetch('/api/admin-push-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newSub),
+          });
+        } else {
+          // Já está inscrito, garante que está salvo no backend
+          await fetch('/api/admin-push-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription),
+          });
+        }
+      });
+
+    // Função utilitária para converter a chave VAPID
+    function urlBase64ToUint8Array(base64String: string) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+  }, []);
+  // --- FIM PUSH NOTIFICATION ADMIN ---
+
   if (editingAppointment) {
     // Busca o serviço correspondente ao agendamento para obter o local
     const service = (services || []).find(s => s.id === editingAppointment.serviceId);

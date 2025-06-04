@@ -8,6 +8,7 @@ import { MercadoPagoConfig, Preference } from "mercadopago"; // Importação dir
 import fs from "fs";
 import path from "path";
 import { toZonedTime, format as formatTz } from "date-fns-tz";
+import webpush from "web-push";
 
 // Carrega o Access Token do Mercado Pago das variáveis de ambiente
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -23,6 +24,21 @@ const mpClient = new MercadoPagoConfig({
   // O fallback aqui é apenas para evitar erro de inicialização se a env var não estiver definida,
   // mas a funcionalidade do MP NÃO funcionará corretamente sem um token válido.
 });
+
+// Configuração do web-push com VAPID
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT;
+
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
+  console.error("FATAL ERROR: VAPID keys or subject not set in environment variables.");
+}
+
+webpush.setVapidDetails(
+  VAPID_SUBJECT!,
+  VAPID_PUBLIC_KEY!,
+  VAPID_PRIVATE_KEY!
+);
 
 // ATENÇÃO: Tipagem 'any' para evitar conflito de sobrecarga do Express com handlers async no TypeScript
 export function registerRoutes(app: any): Server {
@@ -131,6 +147,12 @@ export function registerRoutes(app: any): Server {
       if (slot) {
         await storage.updateSlotAvailability(slot.id, false);
       }
+      // Após criar o agendamento, dispara push notification para o admin
+      await sendPushToAdmin({
+        title: "Novo agendamento recebido!",
+        body: `Cliente: ${validatedData.clientName} | Serviço: ${validatedData.serviceName} | Data: ${validatedData.date} ${validatedData.time}`,
+        url: "/admin"
+      });
       res.status(201).json({
         message: "Appointment created successfully",
         appointment,
@@ -501,6 +523,37 @@ export function registerRoutes(app: any): Server {
       console.error("Falha CRÍTICA ao salvar log do Mercado Pago:", logSavingError);
     }
   }
+
+  // Armazenamento simples da subscription do admin (em memória para início)
+  let adminPushSubscription: any = null;
+
+  // Endpoint para salvar a subscription do admin
+  app.post("/api/admin-push-subscription", (req: Request, res: Response) => {
+    adminPushSubscription = req.body;
+    res.status(201).json({ message: "Subscription salva com sucesso" });
+  });
+
+  // Função utilitária para enviar push notification ao admin
+  async function sendPushToAdmin(notification: { title: string; body: string; url?: string }) {
+    if (!adminPushSubscription) return;
+    try {
+      await webpush.sendNotification(
+        adminPushSubscription,
+        JSON.stringify({
+          title: notification.title,
+          body: notification.body,
+          url: notification.url,
+        })
+      );
+    } catch (err) {
+      console.error("Erro ao enviar push notification ao admin:", err);
+    }
+  }
+
+  // Endpoint para expor a chave pública VAPID
+  app.get("/api/push-public-key", (req: Request, res: Response) => {
+    res.json({ publicKey: VAPID_PUBLIC_KEY });
+  });
 
   const httpServer = createServer(app);
   return httpServer;
