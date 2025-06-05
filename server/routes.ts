@@ -240,6 +240,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
   app.delete("/api/appointments/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const isAdmin = req.query.admin === 'true';
       // Busca o agendamento
       const appointment = (await storage.getAppointments()).find(a => a.id === Number(id));
       if (!appointment) {
@@ -249,18 +250,18 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       const service = await storage.getService(appointment.serviceId);
       const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
       const isIrece = service && service.local && service.local.toLowerCase() === "irece";
-      if (isCilios && isIrece) {
+      if (isCilios && isIrece && !isAdmin) {
         return res.status(403).json({
           message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Por favor, entre em contato pelo WhatsApp para cancelar." 
         });
       }
       await storage.deleteAppointment(Number(id));
       res.json({ message: "Appointment deleted successfully" });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) { // Adaptar para a mensagem de erro real do seu storage
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("not found")) {
         return res.status(404).json({ message: "Appointment not found" });
       }
-      console.error("Error deleting appointment:", error);
+      console.error("Error deleting appointment:", err);
       res.status(500).json({ message: "Error deleting appointment" });
     }
   });

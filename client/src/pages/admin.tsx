@@ -488,8 +488,33 @@ export default function AdminPanel() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setDeleteType({ type: 'appointment', id: appointment.id })}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          // Busca o serviço relacionado ao agendamento
+                          const service = services?.find(s => s.id === appointment.serviceId);
+                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          if (isCilios && isIrece) {
+                            toast({
+                              title: "Cancelamento bloqueado",
+                              description: "O cancelamento de cílios em Irecê só pode ser feito via WhatsApp pelo cliente.",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          setDeleteType({ type: 'appointment', id: appointment.id });
+                        }}
+                        className={`text-red-600 hover:text-red-700 hover:bg-red-50 ${(() => {
+                          const service = services?.find(s => s.id === appointment.serviceId);
+                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          return (isCilios && isIrece) ? 'opacity-50 cursor-not-allowed' : '';
+                        })()}`}
+                        disabled={(() => {
+                          const service = services?.find(s => s.id === appointment.serviceId);
+                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          return isCilios && isIrece;
+                        })()}
                       >
                         <Trash2 className="w-4 h-4 mr-1" /> Excluir
                       </Button>
