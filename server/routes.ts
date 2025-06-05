@@ -634,16 +634,11 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
     try {
       // Mercado Pago pode enviar notificações como x-www-form-urlencoded ou JSON
       const body = req.body || {};
-      // O Mercado Pago pode enviar notificações de diferentes tipos (payment, merchant_order, etc)
-      // O mais comum é receber um 'topic' e um 'id' (ex: payment, merchant_order)
       const topic = body.topic || req.query.topic;
       const paymentId = body.id || req.query.id;
-      // Para debug
       console.log("[MP WEBHOOK] Recebido:", JSON.stringify(body), req.query);
 
-      // Se for notificação de pagamento
       if ((topic === 'payment' || body.type === 'payment') && paymentId) {
-        // Buscar detalhes do pagamento na API do Mercado Pago
         const mpToken = process.env.MP_ACCESS_TOKEN;
         const url = `https://api.mercadopago.com/v1/payments/${paymentId}`;
         const resp = await fetch(url, {
@@ -653,9 +648,35 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         console.log("[MP WEBHOOK] Detalhes do pagamento:", payment);
         if (payment.status === 'approved' && payment.metadata && payment.metadata.bookingData) {
           const bookingData = payment.metadata.bookingData;
+          // Busca se já existe agendamento igual (mesmo e-mail, data, hora, serviço)
+          const allAppointments = await storage.getAppointments();
+          const exists = allAppointments.find(a =>
+            a.clientEmail === bookingData.clientEmail &&
+            a.date === bookingData.date &&
+            a.time === bookingData.time &&
+            a.serviceId === bookingData.serviceId
+          );
+          let appointment = exists;
+          if (!exists) {
+            // Cria o agendamento
+            try {
+              appointment = await storage.createAppointment(bookingData);
+              // Marca o slot como indisponível
+              const slots = await storage.getAvailableSlots(bookingData.date);
+              const slot = slots.find(s => s.time === bookingData.time);
+              if (slot) {
+                await storage.updateSlotAvailability(slot.id, false);
+              }
+            } catch (err) {
+              console.error('[MP WEBHOOK] Erro ao criar agendamento após pagamento:', err);
+              return res.status(500).json({ error: 'Erro ao criar agendamento após pagamento' });
+            }
+          }
           // Busca o local do serviço pelo serviceId, se necessário
-          let local = bookingData.local || '-';
-          if (!local && bookingData.serviceId) {
+          let local = '-';
+          if ('local' in bookingData && bookingData.local) {
+            local = bookingData.local;
+          } else if (bookingData.serviceId) {
             try {
               const service = await storage.getService(bookingData.serviceId);
               if (service && service.local) local = service.local;
@@ -682,8 +703,11 @@ ${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
             const allAppointments = await storage.getAppointments();
             const appointment = allAppointments.find(a => a.id === appointmentId);
             if (appointment) {
-              let local = appointment.local || '-';
-              if (!local && appointment.serviceId) {
+              // Busca o local do serviço pelo serviceId
+              let local = '-';
+              if ('local' in appointment && typeof (appointment as any).local === 'string' && (appointment as any).local) {
+                local = (appointment as any).local;
+              } else if (appointment.serviceId) {
                 try {
                   const service = await storage.getService(appointment.serviceId);
                   if (service && service.local) local = service.local;
