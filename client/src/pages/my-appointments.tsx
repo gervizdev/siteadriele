@@ -178,25 +178,23 @@ export default function MyAppointmentsPage() {
                     `*Nome:* ${ag.clientName}`;
                   const url = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
                   window.location.href = url;
-                  setCancelDialog({ open: false });
                   return;
-                } else {
-                  // Cancela normalmente: remove agendamento e libera horário
-                  try {
-                    const resp = await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
-                    if (!resp.ok) {
-                      const data = await resp.json().catch(() => ({}));
-                      alert(data.message || 'Erro ao cancelar o agendamento.');
-                      return;
-                    }
-                    setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
-                    setCancelDialog({ open: false });
-                    window.setTimeout(() => {
-                      alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
-                    }, 100);
-                  } catch (e) {
-                    alert('Erro ao cancelar o agendamento.');
+                }
+                // Cancela normalmente: remove agendamento e libera horário
+                try {
+                  const resp = await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
+                  if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.message || 'Erro ao cancelar o agendamento.');
+                    return;
                   }
+                  setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
+                  setCancelDialog({ open: false });
+                  window.setTimeout(() => {
+                    alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
+                  }, 100);
+                } catch (e) {
+                  alert('Erro ao cancelar o agendamento.');
                 }
               }}
             >
