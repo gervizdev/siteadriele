@@ -164,9 +164,9 @@ export default function MyAppointmentsPage() {
               onClick={async () => {
                 const ag = cancelDialog.ag;
                 if (!ag) return;
-                // Se for Irecê e serviço de cílios, redireciona para WhatsApp
                 const isIrece = ag.local.toLowerCase() === 'irece';
                 const isCilios = ag.serviceName.toLowerCase().includes('cílios') || ag.serviceName.toLowerCase().includes('cilios');
+                console.log('DEBUG CANCELAMENTO:', { local: ag.local, serviceName: ag.serviceName, isIrece, isCilios });
                 if (isIrece && isCilios) {
                   const msg =
                     `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.%0A` +
@@ -178,12 +178,15 @@ export default function MyAppointmentsPage() {
                   window.open(`https://wa.me/5574988117722?text=${msg}`, '_blank');
                   setCancelDialog({ open: false });
                   return;
+                } else {
+                  // Cancela normalmente: remove agendamento e libera horário
+                  await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
+                  setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
+                  setCancelDialog({ open: false });
+                  window.setTimeout(() => {
+                    alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
+                  }, 100);
                 }
-                // Cancela normalmente: remove agendamento e libera horário
-                await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
-                setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
-                setCancelDialog({ open: false });
-                alert('Agendamento cancelado com sucesso!');
               }}
             >
               Confirmar cancelamento
