@@ -509,12 +509,12 @@ export default function AdminPanel() {
                           const isIrece = service && service.local && service.local.toLowerCase() === "irece";
                           return (isCilios && isIrece) ? 'opacity-50 cursor-not-allowed' : '';
                         })()}`}
-                        disabled={() => {
+                        disabled={(() => {
                           const service = services?.find(s => s.id === appointment.serviceId);
                           const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
                           const isIrece = service && service.local && service.local.toLowerCase() === "irece";
                           return Boolean(isCilios && isIrece);
-                        }}
+                        })()}
                       >
                         <Trash2 className="w-4 h-4 mr-1" /> Excluir
                       </Button>
