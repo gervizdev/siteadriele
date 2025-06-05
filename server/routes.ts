@@ -261,7 +261,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
           `*Nome:* ${appointment.clientName}`;
         const whatsappUrl = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
         return res.status(403).json({
-          message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Por favor, entre em contato pelo WhatsApp para cancelar.",
+          message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Clique em OK para ser redirecionado.",
           whatsappUrl
         });
       }
