@@ -169,6 +169,7 @@ export default function MyAppointmentsPage() {
                 const isCilios = normalize(ag.serviceName).includes('cilios');
                 console.log('DEBUG CANCELAMENTO:', { local: ag.local, serviceName: ag.serviceName, isIrece, isCilios });
                 if (isIrece && isCilios) {
+                  window.alert('O cancelamento de cílios em Irecê só pode ser feito via WhatsApp. Você será redirecionado.');
                   const msg =
                     `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.\n` +
                     `*Serviço:* ${ag.serviceName}\n` +
@@ -185,16 +186,16 @@ export default function MyAppointmentsPage() {
                   const resp = await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
                   if (!resp.ok) {
                     const data = await resp.json().catch(() => ({}));
-                    alert(data.message || 'Erro ao cancelar o agendamento.');
+                    window.alert(data.message || 'Erro ao cancelar o agendamento.');
                     return;
                   }
                   setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
                   setCancelDialog({ open: false });
                   window.setTimeout(() => {
-                    alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
+                    window.alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
                   }, 100);
                 } catch (e) {
-                  alert('Erro ao cancelar o agendamento.');
+                  window.alert('Erro ao cancelar o agendamento.');
                 }
               }}
             >
