@@ -240,6 +240,20 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
   app.delete("/api/appointments/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      // Busca o agendamento
+      const appointment = (await storage.getAppointments()).find(a => a.id === Number(id));
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      // Busca o serviço relacionado
+      const service = await storage.getService(appointment.serviceId);
+      const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
+      const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+      if (isCilios && isIrece) {
+        return res.status(403).json({
+          message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Por favor, entre em contato pelo WhatsApp para cancelar." 
+        });
+      }
       await storage.deleteAppointment(Number(id));
       res.json({ message: "Appointment deleted successfully" });
     } catch (error) {
