@@ -675,6 +675,40 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
 ${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
           );
         }
+        // Se não houver bookingData no metadata, tenta buscar pelo external_reference
+        if (payment.status === 'approved' && (!payment.metadata || !payment.metadata.bookingData) && payment.external_reference) {
+          try {
+            const appointmentId = Number(payment.external_reference.replace('booking-', ''));
+            const allAppointments = await storage.getAppointments();
+            const appointment = allAppointments.find(a => a.id === appointmentId);
+            if (appointment) {
+              let local = appointment.local || '-';
+              if (!local && appointment.serviceId) {
+                try {
+                  const service = await storage.getService(appointment.serviceId);
+                  if (service && service.local) local = service.local;
+                } catch (e) {
+                  console.error('Erro ao buscar local do serviço para notificação Telegram (webhook):', e);
+                }
+              }
+              await sendTelegramToAdmin(
+                `*Pagamento aprovado! Novo agendamento confirmado:*
+*Cliente:* ${appointment.clientName}
+*E-mail:* ${appointment.clientEmail}
+*Telefone:* ${appointment.clientPhone || '-'}
+*Serviço:* ${appointment.serviceName}
+*Data:* ${appointment.date}
+*Horário:* ${appointment.time}
+*Local:* ${local}
+${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
+              );
+            } else {
+              console.error('[MP WEBHOOK] Agendamento não encontrado para external_reference:', payment.external_reference);
+            }
+          } catch (err) {
+            console.error('[MP WEBHOOK] Erro ao buscar agendamento pelo external_reference:', err);
+          }
+        }
       }
       res.status(200).json({ received: true });
     } catch (err) {
