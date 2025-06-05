@@ -1,16 +1,40 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [location] = useLocation();
 
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  // Função para scroll ou navegação SPA inteligente
+  const goToSection = (sectionId: string) => {
+    if (window.location.pathname === "/") {
+      // Se já está na home, faz scroll normalmente
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+      setIsMobileMenuOpen(false);
+    } else {
+      // Se não está na home, navega para home e salva seção no sessionStorage
+      sessionStorage.setItem("scrollToSection", sectionId);
+      window.location.href = "/";
     }
-    setIsMobileMenuOpen(false);
   };
+
+  // Detecta carregamento da home e faz scroll se necessário
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      const section = sessionStorage.getItem("scrollToSection");
+      if (section && window.location.pathname === "/") {
+        const el = document.getElementById(section);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+          sessionStorage.removeItem("scrollToSection");
+        }
+      }
+    }, 400);
+  }
 
   return (
     <nav className="bg-white shadow-sm fixed w-full z-50">
@@ -24,19 +48,19 @@ export default function Navigation() {
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
               <button 
-                onClick={() => scrollToSection('home')}
+                onClick={() => goToSection('home')}
                 className="text-charcoal hover:text-deep-rose transition-colors"
               >
                 Início
               </button>
               <button 
-                onClick={() => scrollToSection('services')}
+                onClick={() => goToSection('services')}
                 className="text-charcoal hover:text-deep-rose transition-colors"
               >
                 Serviços
               </button>
               <button 
-                onClick={() => scrollToSection('booking')}
+                onClick={() => goToSection('booking')}
                 className="text-charcoal hover:text-deep-rose transition-colors"
               >
                 Agendamento
@@ -48,7 +72,7 @@ export default function Navigation() {
                 Meus Agendamentos
               </a>
               <button 
-                onClick={() => scrollToSection('contact')}
+                onClick={() => goToSection('contact')}
                 className="text-charcoal hover:text-deep-rose transition-colors"
               >
                 Contato
@@ -87,19 +111,19 @@ export default function Navigation() {
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
               <button 
-                onClick={() => scrollToSection('home')}
+                onClick={() => goToSection('home')}
                 className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
               >
                 Início
               </button>
               <button 
-                onClick={() => scrollToSection('services')}
+                onClick={() => goToSection('services')}
                 className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
               >
                 Serviços
               </button>
               <button 
-                onClick={() => scrollToSection('booking')}
+                onClick={() => goToSection('booking')}
                 className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
               >
                 Agendamento
@@ -111,7 +135,7 @@ export default function Navigation() {
                 Meus Agendamentos
               </a>
               <button 
-                onClick={() => scrollToSection('contact')}
+                onClick={() => goToSection('contact')}
                 className="block w-full text-left px-3 py-2 text-charcoal hover:text-deep-rose transition-colors"
               >
                 Contato
