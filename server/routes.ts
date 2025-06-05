@@ -647,7 +647,13 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         const payment = await resp.json();
         console.log("[MP WEBHOOK] Detalhes do pagamento:", payment);
         if (payment.status === 'approved' && payment.metadata && payment.metadata.bookingData) {
-          const bookingData = payment.metadata.bookingData;
+          let bookingData: any;
+          try {
+            bookingData = insertAppointmentSchema.parse(payment.metadata.bookingData);
+          } catch (err) {
+            console.error('[MP WEBHOOK] Dados de bookingData inválidos:', err, payment.metadata.bookingData);
+            return res.status(400).json({ error: 'Dados de agendamento inválidos no metadata do pagamento', details: err });
+          }
           // Busca se já existe agendamento igual (mesmo e-mail, data, hora, serviço)
           const allAppointments = await storage.getAppointments();
           const exists = allAppointments.find(a =>
