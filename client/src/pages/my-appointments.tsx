@@ -164,28 +164,39 @@ export default function MyAppointmentsPage() {
               onClick={async () => {
                 const ag = cancelDialog.ag;
                 if (!ag) return;
-                const isIrece = ag.local.toLowerCase() === 'irece';
-                const isCilios = ag.serviceName.toLowerCase().includes('cílios') || ag.serviceName.toLowerCase().includes('cilios');
+                const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/\s+/g, "").replace(/[\u0300-\u036f]/g, "");
+                const isIrece = normalize(ag.local) === 'irece';
+                const isCilios = normalize(ag.serviceName).includes('cilios');
                 console.log('DEBUG CANCELAMENTO:', { local: ag.local, serviceName: ag.serviceName, isIrece, isCilios });
                 if (isIrece && isCilios) {
                   const msg =
-                    `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.%0A` +
-                    `*Serviço:* ${encodeURIComponent(ag.serviceName)}%0A` +
-                    `*Data:* ${encodeURIComponent(ag.date)}%0A` +
-                    `*Horário:* ${encodeURIComponent(ag.time)}%0A` +
-                    `*Local:* ${encodeURIComponent(ag.local)}%0A` +
-                    `*Nome:* ${encodeURIComponent(ag.clientName)}`;
-                  window.open(`https://wa.me/5574988117722?text=${msg}`, '_blank');
+                    `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.\n` +
+                    `*Serviço:* ${ag.serviceName}\n` +
+                    `*Data:* ${ag.date}\n` +
+                    `*Horário:* ${ag.time}\n` +
+                    `*Local:* ${ag.local}\n` +
+                    `*Nome:* ${ag.clientName}`;
+                  const url = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
+                  window.location.href = url;
                   setCancelDialog({ open: false });
                   return;
                 } else {
                   // Cancela normalmente: remove agendamento e libera horário
-                  await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
-                  setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
-                  setCancelDialog({ open: false });
-                  window.setTimeout(() => {
-                    alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
-                  }, 100);
+                  try {
+                    const resp = await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
+                    if (!resp.ok) {
+                      const data = await resp.json().catch(() => ({}));
+                      alert(data.message || 'Erro ao cancelar o agendamento.');
+                      return;
+                    }
+                    setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
+                    setCancelDialog({ open: false });
+                    window.setTimeout(() => {
+                      alert('Agendamento cancelado com sucesso! Caso tenha dúvidas, entre em contato pelo WhatsApp.');
+                    }, 100);
+                  } catch (e) {
+                    alert('Erro ao cancelar o agendamento.');
+                  }
                 }
               }}
             >
