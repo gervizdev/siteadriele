@@ -646,12 +646,20 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         });
         const payment = await resp.json();
         console.log("[MP WEBHOOK] Detalhes do pagamento:", payment);
-        if (payment.status === 'approved' && payment.metadata && payment.metadata.bookingData) {
+        if (payment.status === 'approved' && payment.metadata && (payment.metadata.bookingData || payment.metadata.booking_data)) {
+          // Suporte a ambos formatos: camelCase (bookingData) e snake_case (booking_data)
+          let rawBookingData = payment.metadata.bookingData || payment.metadata.booking_data;
+          // Se vier em snake_case, converte para camelCase
+          if (payment.metadata.booking_data) {
+            const snakeToCamel = (str: string) => str.replace(/_([a-z])/g, g => g[1].toUpperCase());
+            const convertKeys = (obj: any) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [snakeToCamel(k), v]));
+            rawBookingData = convertKeys(rawBookingData);
+          }
           let bookingData: any;
           try {
-            bookingData = insertAppointmentSchema.parse(payment.metadata.bookingData);
+            bookingData = insertAppointmentSchema.parse(rawBookingData);
           } catch (err) {
-            console.error('[MP WEBHOOK] Dados de bookingData inválidos:', err, payment.metadata.bookingData);
+            console.error('[MP WEBHOOK] Dados de bookingData inválidos:', err, rawBookingData);
             return res.status(400).json({ error: 'Dados de agendamento inválidos no metadata do pagamento', details: err });
           }
           // Busca se já existe agendamento igual (mesmo e-mail, data, hora, serviço)
