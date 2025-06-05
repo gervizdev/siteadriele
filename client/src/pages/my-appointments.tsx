@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import BookingSection from "../components/booking-section";
 import Navigation from "../components/navigation";
 import Footer from "../components/footer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
 import type { Service } from "@shared/schema";
 
 // Exemplo de tipo, ajuste conforme seu backend
@@ -30,6 +32,7 @@ export default function MyAppointmentsPage() {
   const [email, setEmail] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
+  const [cancelDialog, setCancelDialog] = useState<{ open: boolean; ag?: Appointment }>({ open: false });
 
   useEffect(() => {
     setServicesLoading(true);
@@ -127,23 +130,7 @@ export default function MyAppointmentsPage() {
                   </button>
                   <button
                     className="block mx-auto mt-2 text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-primary focus:ring-opacity-50 italic"
-                    onClick={async () => {
-                      if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) return;
-                      // Se for Irecê e serviço de cílios, redireciona para WhatsApp
-                      const isIrece = ag.local.toLowerCase() === 'irece';
-                      const isCilios = ag.serviceName.toLowerCase().includes('cílios') || ag.serviceName.toLowerCase().includes('cilios');
-                      // Simulação: se status for 'Pago' ou 'Adiantamento', considera que pagou o adiantamento
-                      const pagouAdiantamento = isIrece && isCilios && (ag.status?.toLowerCase().includes('pago') || ag.status?.toLowerCase().includes('adiantamento'));
-                      if (pagouAdiantamento) {
-                        window.open('https://wa.me/5574988117722?text=Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.', '_blank');
-                        return;
-                      }
-                      // Cancela normalmente: remove agendamento e libera horário
-                      await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
-                      // Opcional: liberar slot no backend, se necessário
-                      setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
-                      alert('Agendamento cancelado com sucesso!');
-                    }}
+                    onClick={() => setCancelDialog({ open: true, ag })}
                   >
                     <span className="italic">Quer cancelar o agendamento?</span>
                   </button>
@@ -163,6 +150,47 @@ export default function MyAppointmentsPage() {
           </div>
         </div>
       </section>
+      {/* Modal de confirmação de cancelamento */}
+      <Dialog open={cancelDialog.open} onOpenChange={open => setCancelDialog(s => ({ ...s, open }))}>
+        <DialogContent aria-describedby="cancel-appointment-desc">
+          <DialogHeader>
+            <DialogTitle>Cancelar agendamento?</DialogTitle>
+          </DialogHeader>
+          <p id="cancel-appointment-desc">Tem certeza que deseja cancelar este agendamento?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialog({ open: false })}>Voltar</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                const ag = cancelDialog.ag;
+                if (!ag) return;
+                // Se for Irecê e serviço de cílios, redireciona para WhatsApp
+                const isIrece = ag.local.toLowerCase() === 'irece';
+                const isCilios = ag.serviceName.toLowerCase().includes('cílios') || ag.serviceName.toLowerCase().includes('cilios');
+                if (isIrece && isCilios) {
+                  const msg =
+                    `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.%0A` +
+                    `*Serviço:* ${encodeURIComponent(ag.serviceName)}%0A` +
+                    `*Data:* ${encodeURIComponent(ag.date)}%0A` +
+                    `*Horário:* ${encodeURIComponent(ag.time)}%0A` +
+                    `*Local:* ${encodeURIComponent(ag.local)}%0A` +
+                    `*Nome:* ${encodeURIComponent(ag.clientName)}`;
+                  window.open(`https://wa.me/5574988117722?text=${msg}`, '_blank');
+                  setCancelDialog({ open: false });
+                  return;
+                }
+                // Cancela normalmente: remove agendamento e libera horário
+                await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
+                setAppointments(appointments => appointments.filter(a => a.id !== ag.id));
+                setCancelDialog({ open: false });
+                alert('Agendamento cancelado com sucesso!');
+              }}
+            >
+              Confirmar cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </>
   );
