@@ -76,7 +76,7 @@ export default function ContactSection() {
                 <div>
                   <p className="font-semibold">Endereço Irecê</p>
                   <p className="text-gray-300">
-                    Avenida Primeiro de Janeiro, nº 839<br />
+                    Avenida Primeiro de Janeiro, nº 400<br />
                     Apartamento <br />
                     Em frente à Cuscuzeira Maria Bonita<br />
                     Ao lado do Posto KF<br />

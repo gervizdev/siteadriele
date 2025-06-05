@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [location] = useLocation();
+  const [, navigate] = useLocation(); // Corrigido: usar navigate
 
   // Função para scroll ou navegação SPA inteligente
   const goToSection = (sectionId: string) => {
@@ -16,9 +16,10 @@ export default function Navigation() {
       }
       setIsMobileMenuOpen(false);
     } else {
-      // Se não está na home, navega para home e salva seção no sessionStorage
+      // Se não está na home, navega para home SPA e salva seção no sessionStorage
       sessionStorage.setItem("scrollToSection", sectionId);
-      window.location.href = "/";
+      setIsMobileMenuOpen(false);
+      navigate("/"); // SPA
     }
   };
 
@@ -33,7 +34,7 @@ export default function Navigation() {
           sessionStorage.removeItem("scrollToSection");
         }
       }
-    }, 400);
+    }, 900); // delay aumentado para garantir carregamento
   }
 
   return (
