@@ -251,8 +251,18 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
       const isIrece = service && service.local && service.local.toLowerCase() === "irece";
       if (isCilios && isIrece && !isAdmin) {
+        // Monta mensagem e URL do WhatsApp
+        const msg =
+          `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.\n` +
+          `*Serviço:* ${appointment.serviceName}\n` +
+          `*Data:* ${appointment.date}\n` +
+          `*Horário:* ${appointment.time}\n` +
+          `*Local:* ${(service?.local || '-') }\n` +
+          `*Nome:* ${appointment.clientName}`;
+        const whatsappUrl = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
         return res.status(403).json({
-          message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Por favor, entre em contato pelo WhatsApp para cancelar." 
+          message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Por favor, entre em contato pelo WhatsApp para cancelar.",
+          whatsappUrl
         });
       }
       await storage.deleteAppointment(Number(id));

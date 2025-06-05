@@ -164,28 +164,17 @@ export default function MyAppointmentsPage() {
               onClick={async () => {
                 const ag = cancelDialog.ag;
                 if (!ag) return;
-                const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/\s+/g, "").replace(/[\u0300-\u036f]/g, "");
-                const isIrece = normalize(ag.local) === 'irece';
-                const isCilios = normalize(ag.serviceName).includes('cilios');
-                console.log('DEBUG CANCELAMENTO:', { local: ag.local, serviceName: ag.serviceName, isIrece, isCilios });
-                if (isIrece && isCilios) {
-                  window.alert('O cancelamento de cílios em Irecê só pode ser feito via WhatsApp. Você será redirecionado.');
-                  const msg =
-                    `Olá! Preciso cancelar meu agendamento e já paguei o adiantamento.\n` +
-                    `*Serviço:* ${ag.serviceName}\n` +
-                    `*Data:* ${ag.date}\n` +
-                    `*Horário:* ${ag.time}\n` +
-                    `*Local:* ${ag.local}\n` +
-                    `*Nome:* ${ag.clientName}`;
-                  const url = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
-                  window.location.href = url;
-                  return;
-                }
-                // Cancela normalmente: remove agendamento e libera horário
                 try {
                   const resp = await fetch(`/api/appointments/${ag.id}`, { method: 'DELETE' });
                   if (!resp.ok) {
                     const data = await resp.json().catch(() => ({}));
+                    if (data.message && data.message.includes('só pode ser feito via WhatsApp')) {
+                      window.alert(data.message);
+                      if (data.whatsappUrl) {
+                        window.location.href = data.whatsappUrl;
+                      }
+                      return;
+                    }
                     window.alert(data.message || 'Erro ao cancelar o agendamento.');
                     return;
                   }
