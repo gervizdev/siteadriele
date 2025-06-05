@@ -108,7 +108,7 @@ export default function AdminPanel() {
   });
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/appointments/${id}`);
+      await apiRequest("DELETE", `/api/appointments/${id}?admin=true`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
