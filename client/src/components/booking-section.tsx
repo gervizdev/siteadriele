@@ -413,7 +413,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
               <p className="mb-2"><b>Preço Total:</b> R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}</p>
               {hasCiliosIrece && (
                 <div className="mt-2 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs">
-                  Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}</b> (valor já inclui a taxa do cartão, se aplicável).<br />
+                  Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(editData)}</b> (valor já inclui a taxa do cartão, se aplicável).<br />
                   <span className="block mt-1">Você receberá o desconto de R$ 30,00 no dia do atendimento. O acréscimo é referente à taxa do Mercado Pago para pagamento com cartão.</span>
                 </div>
               )}
@@ -714,7 +714,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                         {hasCiliosIrece ? (
                             <>
                             R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}
-                            <span className="text-xs block">(Será cobrado um adiantamento de R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
+                            <span className="text-xs block">(Será cobrado um adiantamento de R$ {getValorAdiantamentoComTaxa(editData)}. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
                             </>
                         ) : (
                             `R$ ${(totalPrice / 100).toFixed(2).replace('.', ',')}`
@@ -723,7 +723,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     {hasCiliosIrece && (
                       <div className="!mt-4 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-start gap-2">
                         <QuestionMarkIcon className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}</b>. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento. O acréscimo é referente à taxa do Mercado Pago para pagamento com cartão.</span>
+                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(editData)}</b>. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento. O acréscimo é referente à taxa do Mercado Pago para pagamento com cartão.</span>
                       </div>
                     )}
                   </div>

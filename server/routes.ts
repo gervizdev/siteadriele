@@ -572,12 +572,8 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         external_reference: String(bookingData?.id || `booking-${Date.now()}`),
         metadata: { bookingData },
         payment_methods: {
-<<<<<<< HEAD
-          excluded_payment_types: [{ id: "ticket" }],
-=======
           excluded_payment_types: [{ id: "ticket" }], // Remove boleto
           excluded_payment_methods: [], // Não exclui cartão, pix ou saldo
->>>>>>> bd38dd4 (Corrige Pix: envia metadata com dados do agendamento no payload, e adiciona push notification no webhook após pagamento aprovado)
         }
       };
       console.log("Criando preferência Mercado Pago (rota /api/pagamento) com payload:", JSON.stringify(preferencePayload, null, 2));

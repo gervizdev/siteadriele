@@ -322,7 +322,8 @@ export default function AdminPanel() {
               ...editingAppointment,
               id: editingAppointment.id,
               local: service?.local || "",
-              notes: editingAppointment.notes ?? undefined
+              notes: editingAppointment.notes ?? undefined,
+              clientCPF: (editingAppointment as any).clientCPF || ""
             }}
             onEditFinish={() => setEditingAppointment(null)}
           />

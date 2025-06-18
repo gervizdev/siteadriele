@@ -99,6 +99,7 @@ export default function MyAppointmentsPage() {
                     clientName: editing.clientName,
                     clientPhone: '', // Solicitar ao usuário se não estiver disponível
                     clientEmail: editing.clientEmail,
+                    clientCPF: (editing as any).clientCPF || "",
                     isFirstTime: false, // Valor padrão
                     notes: '', // Valor padrão
                   };
