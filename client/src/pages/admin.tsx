@@ -109,6 +109,23 @@ export default function AdminPanel() {
   const deleteAppointmentMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/appointments/${id}?admin=true`);
+      // Após deletar o agendamento, marca o slot como disponível
+      const deleted = appointments?.find(a => a.id === id);
+      if (deleted) {
+        // Busca o slot correspondente pelo horário/data/local
+        const slotResp = await fetch(`/api/admin/slots/${deleted.date}`);
+        if (slotResp.ok) {
+          const slots: any[] = await slotResp.json();
+          const slot = slots.find(s => s.time === deleted.time && s.local?.toLowerCase() === (services?.find(sv => sv.id === deleted.serviceId)?.local?.toLowerCase() || ""));
+          if (slot && !slot.isAvailable) {
+            await fetch(`/api/admin/slots/${slot.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isAvailable: true })
+            });
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
