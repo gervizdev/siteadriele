@@ -8,8 +8,21 @@ export default function PaymentPage() {
   const [location, setLocation] = useLocation();
   const [waitingPayment, setWaitingPayment] = useState(true);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
-  const [pixData, setPixData] = useState<{qr_code: string, qr_code_base64: string, payment_id: string} | null>(null);
-  const [showPix, setShowPix] = useState(false);
+  const [pixData, setPixData] = useState<{qr_code: string, qr_code_base64: string, payment_id: string} | null>(() => {
+    try {
+      const data = sessionStorage.getItem("pixData");
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showPix, setShowPix] = useState(() => {
+    try {
+      return sessionStorage.getItem("showPix") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [loadingPix, setLoadingPix] = useState(false);
   const pixInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast ? useToast() : { toast: (args: any) => alert(args.description) };
@@ -84,10 +97,13 @@ export default function PaymentPage() {
     }
   }, [waitingPayment, preferenceId]);
 
+  // Sempre que gerar Pix, salva no sessionStorage
   const handlePix = async () => {
     setLoadingPix(true);
     setShowPix(true);
+    sessionStorage.setItem("showPix", "true");
     setPixData(null);
+    sessionStorage.removeItem("pixData");
     try {
       // Monta explicitamente o objeto payer sem o campo phone
       const payer = {
@@ -110,28 +126,22 @@ export default function PaymentPage() {
         })
       });
       const data = await resp.json();
-      if (data.qr_code) setPixData(data);
-      else alert("Erro ao gerar Pix: " + (data.error || ""));
+      if (data.qr_code) {
+        setPixData(data);
+        sessionStorage.setItem("pixData", JSON.stringify(data));
+      } else alert("Erro ao gerar Pix: " + (data.error || ""));
     } catch (e) {
       alert("Erro ao gerar Pix");
     }
     setLoadingPix(false);
   };
-  const handleCopyPix = () => {
-    if (pixData?.qr_code && pixInputRef.current) {
-      pixInputRef.current.focus();
-      pixInputRef.current.select();
-      try {
-        const success = document.execCommand('copy');
-        if (success) {
-          toast({ title: "Pix copiado!", description: "Chave Pix copiada! Abra seu app bancário e cole para pagar.", variant: "success" });
-        } else {
-          toast({ title: "Falha ao copiar", description: "Não foi possível copiar automaticamente. Selecione e copie o código manualmente.", variant: "destructive" });
-        }
-      } catch {
-        toast({ title: "Falha ao copiar", description: "Não foi possível copiar automaticamente. Selecione e copie o código manualmente.", variant: "destructive" });
-      }
-    }
+
+  // Sempre que cancelar Pix, limpa sessionStorage
+  const handleCancelPix = () => {
+    setShowPix(false);
+    setPixData(null);
+    sessionStorage.removeItem("pixData");
+    sessionStorage.setItem("showPix", "false");
   };
 
   // Polling para status do pagamento
@@ -151,9 +161,13 @@ export default function PaymentPage() {
           const resp = await fetch(`/api/pagamento-status?id=${paymentId}`);
           const data = await resp.json();
           if (data.status === 'approved') {
-            // Pagamento aprovado!
+            // Limpa Pix do sessionStorage ao aprovar
+            sessionStorage.removeItem("pixData");
+            sessionStorage.setItem("showPix", "false");
             window.location.href = '/payment-success';
           } else if (data.status === 'rejected' || data.status === 'cancelled') {
+            sessionStorage.removeItem("pixData");
+            sessionStorage.setItem("showPix", "false");
             window.location.href = '/payment-failure';
           }
         } catch (e) {
@@ -194,7 +208,7 @@ export default function PaymentPage() {
               {loadingPix ? "Gerando Pix..." : "Gerar Pix (R$ 30,00)"}
             </button>
             <button
-              onClick={() => { setShowPix(false); setPixData(null); }}
+              onClick={handleCancelPix}
               className="w-full py-3 bg-gray-200 text-charcoal rounded-xl font-bold text-lg transition-all"
               style={{ display: showPix ? undefined : "none" }}
             >Cancelar Pix</button>
