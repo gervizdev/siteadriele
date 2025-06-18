@@ -484,7 +484,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
 
   // Rota para criar preferência de pagamento Mercado Pago (nova rota)
   app.post("/api/pagamento", async (req: Request, res: Response) => {
-    const { title, price, quantity, payer, bookingData } = req.body;
+    let { title, price, quantity, payer, bookingData } = req.body;
 
     if (!payer || !payer.email || typeof payer.email !== 'string' || payer.email.trim() === "") {
       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP sem email do pagador válido. Payer recebido:", payer);
@@ -505,7 +505,46 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       return res.status(500).json({ error: "Configuração do servidor de pagamento incompleta."});
     }
 
-    try {
+    try {    // Ajuste para repassar taxa do cartão ao cliente (apenas para adiantamento cílios/Irecê)
+      // Considera que price está em centavos (ex: 3000 = R$ 30,00)
+      const isCiliosIrece = bookingData?.local?.toLowerCase() === "irece" && bookingData?.serviceName?.toLowerCase().includes("cílios");
+      const isAdiantamento = title?.toLowerCase().includes("adiantamento");
+      // Taxa Mercado Pago padrão cartão: 4,97% (0,0497)
+      const TAXA_CARTAO = 0.0497;
+      // Ajuste: valor fixo do adiantamento com taxa para cartão (R$ 31,58)
+      // Taxa Mercado Pago padrão cartão: 4,97% (0,0497)
+      // Para receber R$ 30,00 líquidos: 30 / 0.9503 = 31,58 (arredondado)
+      const VALOR_ADIANTAMENTO_CARTAO = 3158; // em centavos (R$ 31,58)
+      if (isCiliosIrece && isAdiantamento) {
+        price = VALOR_ADIANTAMENTO_CARTAO;
+        bookingData.valorAdiantamentoComTaxa = VALOR_ADIANTAMENTO_CARTAO;
+        bookingData.valorLiquidoDesejado = 3000;
+        bookingData.taxaCartao = TAXA_CARTAO;
+      }
+
+      // Determina categoria e descrição do serviço para o Mercado Pago
+      const categoryId = bookingData?.category_id || bookingData?.category || 'services'; // fallback para 'services'
+      const description = bookingData?.serviceDescription || bookingData?.description || title;
+      // Telefone do cliente (formato internacional recomendado pelo MP: +5511999999999)
+      let payerPhone = payer.phone || bookingData?.clientPhone || '';
+      let payerPhoneObj = undefined;
+      if (payerPhone) {
+        // Extrai apenas dígitos
+        const onlyDigits = payerPhone.replace(/\D/g, '');
+        let area_code = '';
+        let number = '';
+        if (onlyDigits.length === 11) {
+          area_code = onlyDigits.substring(0, 2);
+          number = onlyDigits.substring(2);
+        } else if (onlyDigits.length === 13 && onlyDigits.startsWith('55')) {
+          area_code = onlyDigits.substring(2, 4);
+          number = onlyDigits.substring(4);
+        }
+        if (area_code && number) {
+          payerPhoneObj = { area_code, number };
+        }
+      }
+
       const preference = new Preference(mpClient); // Usa a instância mpClient configurada globalmente
       const unitPriceInReais = price / 100;
       const preferencePayload = {
@@ -515,10 +554,13 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
           unit_price: unitPriceInReais,
           quantity,
           currency_id: 'BRL',
+          category_id: categoryId,
+          description: description,
         }],
         payer: {
           email: payer.email,
           name: payer.name,
+          ...(payerPhoneObj ? { phone: payerPhoneObj } : {}),
         },
         back_urls: {
           success: `${process.env.YOUR_DOMAIN || 'http://localhost:3000'}/payment-success`,
@@ -530,7 +572,12 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         external_reference: String(bookingData?.id || `booking-${Date.now()}`),
         metadata: { bookingData },
         payment_methods: {
+<<<<<<< HEAD
           excluded_payment_types: [{ id: "ticket" }],
+=======
+          excluded_payment_types: [{ id: "ticket" }], // Remove boleto
+          excluded_payment_methods: [], // Não exclui cartão, pix ou saldo
+>>>>>>> bd38dd4 (Corrige Pix: envia metadata com dados do agendamento no payload, e adiciona push notification no webhook após pagamento aprovado)
         }
       };
       console.log("Criando preferência Mercado Pago (rota /api/pagamento) com payload:", JSON.stringify(preferencePayload, null, 2));
@@ -737,6 +784,11 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
 *Local:* ${local}
 ${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
           );
+          await sendPushToAdmin({
+            title: "Novo agendamento confirmado!",
+            body: `Cliente: ${bookingData.clientName}\nServiço: ${bookingData.serviceName}\nData: ${bookingData.date} ${bookingData.time}`,
+            url: "/admin"
+          });
         }
         // Se não houver bookingData no metadata, tenta buscar pelo external_reference
         if (payment.status === 'approved' && (!payment.metadata || !payment.metadata.bookingData) && payment.external_reference) {
@@ -780,6 +832,84 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
     } catch (err) {
       console.error('[MP WEBHOOK] Erro ao processar webhook:', err);
       res.status(500).json({ error: 'Erro ao processar webhook' });
+    }
+  });
+
+  // Endpoint para gerar pagamento Pix (copia e cola)
+  app.post("/api/pagar-pix", async (req: Request, res: Response) => {
+    try {
+      // Valor fixo do Pix: R$ 30,00
+      const amount = 30.00;
+      const { description, payer, bookingData } = req.body;
+      if (!amount || !description || !payer || !payer.email || !payer.first_name || !payer.last_name || !payer.identification) {
+        return res.status(400).json({ error: "Dados obrigatórios ausentes para gerar Pix." });
+      }
+      const mpToken = process.env.MP_ACCESS_TOKEN;
+      if (!mpToken) return res.status(500).json({ error: "Access Token do Mercado Pago não configurado." });
+      const notificationUrl = process.env.MP_WEBHOOK_URL || process.env.YOUR_NOTIFICATION_DOMAIN + "/api/mercadopago/webhook";
+      // Remove phone do objeto payer se vier do frontend
+      const { email, first_name, last_name, identification } = payer;
+      const paymentPayload = {
+        transaction_amount: amount,
+        description,
+        payment_method_id: "pix",
+        payer: {
+          email,
+          first_name,
+          last_name,
+          identification // { type: 'CPF', number: '...' }
+        },
+        notification_url: notificationUrl,
+        ...(bookingData ? { metadata: { bookingData } } : {}) // Adiciona metadata se vier do frontend
+      };
+      // Loga o payload enviado ao Mercado Pago para debug
+      console.log("[PIX] Payload enviado ao Mercado Pago:", JSON.stringify(paymentPayload, null, 2));
+      // Salva o payload em arquivo para debug completo
+      try {
+        const logsDir = path.join(__dirname, "..", "logs");
+        if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, "-");
+        const fileName = `pix-payload-${timestamp}.log`;
+        const filePath = path.join(logsDir, fileName);
+        fs.writeFileSync(filePath, JSON.stringify(paymentPayload, null, 2), { encoding: "utf-8" });
+        console.log(`[PIX] Payload salvo em: ${filePath}`);
+      } catch (e) {
+        console.error("[PIX] Falha ao salvar payload em arquivo:", e);
+      }
+      const resp = await fetch("https://api.mercadopago.com/v1/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${mpToken}`,
+          "X-Idempotency-Key": `${Date.now()}-${Math.random().toString(36).substring(2, 15)}` // Gera um valor único por requisição
+        },
+        body: JSON.stringify(paymentPayload)
+      });
+      const data = await resp.json();
+      if (!data.point_of_interaction || !data.point_of_interaction.transaction_data) {
+        // Loga resposta completa do Mercado Pago para debug
+        try {
+          const logsDir = path.join(__dirname, "..", "logs");
+          if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+          const now = new Date();
+          const timestamp = now.toISOString().replace(/[:.]/g, "-");
+          const fileName = `mercadopago-error-pix-${timestamp}.log`;
+          const filePath = path.join(logsDir, fileName);
+          fs.writeFileSync(filePath, JSON.stringify(data, null, 2), { encoding: "utf-8" });
+          console.error(`[PIX] Erro Mercado Pago salvo em: ${filePath}`);
+        } catch (e) {
+          console.error("[PIX] Falha ao salvar erro Mercado Pago em arquivo:", e);
+        }
+        return res.status(500).json({ error: "Erro ao gerar Pix.", details: data });
+      }
+      res.json({
+        qr_code: data.point_of_interaction.transaction_data.qr_code,
+        qr_code_base64: data.point_of_interaction.transaction_data.qr_code_base64,
+        payment_id: data.id
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Erro interno ao gerar Pix.", details: String(err) });
     }
   });
 

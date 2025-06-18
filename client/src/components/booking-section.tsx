@@ -24,6 +24,28 @@ const bookingSchema = z.object({
   clientName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   clientPhone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
   clientEmail: z.string().min(1, "O email é obrigatório").email("Formato de email inválido"),
+  clientCPF: z.string().min(11, "O CPF é obrigatório").max(14, "CPF inválido").refine(
+    (cpf) => {
+      // Remove não dígitos
+      const onlyDigits = cpf.replace(/\D/g, "");
+      if (onlyDigits.length !== 11) return false;
+      // Validação básica de CPF (dígitos verificadores)
+      let sum = 0;
+      let rest;
+      if (onlyDigits === "00000000000") return false;
+      for (let i = 1; i <= 9; i++) sum = sum + parseInt(onlyDigits.substring(i - 1, i)) * (11 - i);
+      rest = (sum * 10) % 11;
+      if ((rest === 10) || (rest === 11)) rest = 0;
+      if (rest !== parseInt(onlyDigits.substring(9, 10))) return false;
+      sum = 0;
+      for (let i = 1; i <= 10; i++) sum = sum + parseInt(onlyDigits.substring(i - 1, i)) * (12 - i);
+      rest = (sum * 10) % 11;
+      if ((rest === 10) || (rest === 11)) rest = 0;
+      if (rest !== parseInt(onlyDigits.substring(10, 11))) return false;
+      return true;
+    },
+    { message: "CPF inválido" }
+  ),
   isFirstTime: z.boolean(),
   notes: z.string().optional(),
 });
@@ -35,6 +57,14 @@ function timeStringToMinutes(timeStr: string): number {
   if (!timeStr || !timeStr.includes(':')) return 0;
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
+}
+
+// Função auxiliar para exibir valor do adiantamento com taxa, se disponível
+function getValorAdiantamentoComTaxa(data: any) {
+  if (data?.valorAdiantamentoComTaxa) {
+    return (data.valorAdiantamentoComTaxa / 100).toFixed(2).replace('.', ',');
+  }
+  return '30,00';
 }
 
 export default function BookingSection({ editData, onEditFinish }: { editData?: BookingFormData & { id: number }, onEditFinish?: () => void } = {}) {
@@ -232,8 +262,11 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     };
     if (isAdiantamento) {
       toast({ title: "Redirecionando para pagamento..." });
-      // Salva os dados no sessionStorage para a página de pagamento
-      sessionStorage.setItem("bookingData", JSON.stringify(finalBookingData));
+      // Salva os dados no sessionStorage para a página de pagamento, incluindo o CPF
+      sessionStorage.setItem("bookingData", JSON.stringify({
+        ...finalBookingData,
+        clientCPF: data.clientCPF // Garante que o CPF vá para o fluxo de pagamento
+      }));
       navigate("/pagamento");
       return;
     }
@@ -358,6 +391,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       setValue("clientName", editData.clientName);
       setValue("clientPhone", editData.clientPhone);
       setValue("clientEmail", editData.clientEmail || "");
+      setValue("clientCPF", editData.clientCPF || ""); // Novo campo CPF
       setValue("isFirstTime", editData.isFirstTime);
       setValue("notes", editData.notes || "");
     }
@@ -379,7 +413,8 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
               <p className="mb-2"><b>Preço Total:</b> R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}</p>
               {hasCiliosIrece && (
                 <div className="mt-2 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs">
-                  Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ 30,00</b>. O restante será pago no local.
+                  Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}</b> (valor já inclui a taxa do cartão, se aplicável).<br />
+                  <span className="block mt-1">Você receberá o desconto de R$ 30,00 no dia do atendimento. O acréscimo é referente à taxa do Mercado Pago para pagamento com cartão.</span>
                 </div>
               )}
             </div>
@@ -638,6 +673,13 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                       placeholder="seu@email.com" />
                     {errors.clientEmail && <p className="mt-1 text-red-500 text-xs">{errors.clientEmail.message}</p>}
                   </div>
+                  <div>
+                    <label htmlFor="clientCPF" className="block text-sm font-medium text-charcoal mb-1">CPF <span className="text-red-500">*</span></label>
+                    <input id="clientCPF" type="text" {...register("clientCPF")}
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-primary focus:border-rose-primary transition-colors ${errors.clientCPF ? "border-red-500 ring-red-500" : ""}`}
+                      placeholder="Digite seu CPF" maxLength={14} inputMode="numeric" />
+                    {errors.clientCPF && <p className="mt-1 text-red-500 text-xs">{errors.clientCPF.message}</p>}
+                  </div>
                   <div className="flex items-center md:col-span-2">
                     <input id="isFirstTime" type="checkbox" {...register("isFirstTime")}
                       className="h-4 w-4 text-rose-primary border-gray-300 rounded focus:ring-rose-primary" />
@@ -672,7 +714,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                         {hasCiliosIrece ? (
                             <>
                             R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}
-                            <span className="text-xs block">(Será cobrado um adiantamento de R$ 30,00. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
+                            <span className="text-xs block">(Será cobrado um adiantamento de R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
                             </>
                         ) : (
                             `R$ ${(totalPrice / 100).toFixed(2).replace('.', ',')}`
@@ -681,7 +723,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     {hasCiliosIrece && (
                       <div className="!mt-4 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-start gap-2">
                         <QuestionMarkIcon className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ 30,00</b>. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento.</span>
+                        <span>Para serviços de Cílios em Irecê, é necessário um adiantamento de <b>R$ {getValorAdiantamentoComTaxa(waitingPayment ? bookingDataPagamento : undefined)}</b>. Este valor será descontado do total no dia do atendimento. O agendamento só é confirmado após a aprovação do pagamento. O acréscimo é referente à taxa do Mercado Pago para pagamento com cartão.</span>
                       </div>
                     )}
                   </div>

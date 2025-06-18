@@ -1,8 +1,0 @@
-[2025-05-30T20:30:07.589Z]
-Mensagem: invalid_token
-Erro serializado: {
-  "message": "invalid_token",
-  "error": "bad_request",
-  "status": 400,
-  "cause": null
-}
