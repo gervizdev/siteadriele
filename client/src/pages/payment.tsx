@@ -178,6 +178,23 @@ export default function PaymentPage() {
     return () => { if (interval) clearInterval(interval); };
   }, [showPix, pixData, waitingPayment, preferenceId]);
 
+  const handleCopyPix = () => {
+    if (pixData?.qr_code && pixInputRef.current) {
+      pixInputRef.current.focus();
+      pixInputRef.current.select();
+      try {
+        const success = document.execCommand('copy');
+        if (success) {
+          toast({ title: "Pix copiado!", description: "Chave Pix copiada! Abra seu app bancário e cole para pagar.", variant: "success" });
+        } else {
+          toast({ title: "Falha ao copiar", description: "Não foi possível copiar automaticamente. Selecione e copie o código manualmente.", variant: "destructive" });
+        }
+      } catch {
+        toast({ title: "Falha ao copiar", description: "Não foi possível copiar automaticamente. Selecione e copie o código manualmente.", variant: "destructive" });
+      }
+    }
+  };
+
   if (!bookingData) return null;
 
   return (
