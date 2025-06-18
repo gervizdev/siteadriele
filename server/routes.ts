@@ -528,7 +528,10 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
         auto_return: "approved" as "approved" | "all",
         notification_url: `${process.env.YOUR_NOTIFICATION_DOMAIN || 'https://seu-webhook-real.com'}/api/mercadopago/webhook`,
         external_reference: String(bookingData?.id || `booking-${Date.now()}`),
-        metadata: { bookingData }
+        metadata: { bookingData },
+        payment_methods: {
+          excluded_payment_types: [{ id: "ticket" }],
+        }
       };
       console.log("Criando preferência Mercado Pago (rota /api/pagamento) com payload:", JSON.stringify(preferencePayload, null, 2));
       const result = await preference.create({ body: preferencePayload });
