@@ -909,6 +909,23 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
     }
   });
 
+  // Endpoint para consultar status do pagamento pelo payment_id
+  app.get('/api/pagamento-status', async (req: any, res: any) => {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'payment_id ausente' });
+    try {
+      const mpToken = process.env.MP_ACCESS_TOKEN;
+      const url = `https://api.mercadopago.com/v1/payments/${id}`;
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${mpToken}` }
+      });
+      const data = await resp.json();
+      res.json({ status: data.status, status_detail: data.status_detail });
+    } catch (e) {
+      res.status(500).json({ error: 'Erro ao consultar status do pagamento' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -134,6 +134,36 @@ export default function PaymentPage() {
     }
   };
 
+  // Polling para status do pagamento
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    // Só faz polling se houver Pix gerado OU pagamento via cartão iniciado
+    if ((showPix && pixData?.payment_id) || (waitingPayment && preferenceId)) {
+      interval = setInterval(async () => {
+        let paymentId = pixData?.payment_id;
+        // Para cartão, precisamos buscar o paymentId via preferenceId (opcional: pode ser passado do backend)
+        if (!paymentId && preferenceId) {
+          // Opcional: buscar paymentId via preferenceId se backend fornecer endpoint
+          return; // Por enquanto, só Pix
+        }
+        if (!paymentId) return;
+        try {
+          const resp = await fetch(`/api/pagamento-status?id=${paymentId}`);
+          const data = await resp.json();
+          if (data.status === 'approved') {
+            // Pagamento aprovado!
+            window.location.href = '/payment-success';
+          } else if (data.status === 'rejected' || data.status === 'cancelled') {
+            window.location.href = '/payment-failure';
+          }
+        } catch (e) {
+          // Ignora erros de polling
+        }
+      }, 5000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [showPix, pixData, waitingPayment, preferenceId]);
+
   if (!bookingData) return null;
 
   return (
