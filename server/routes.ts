@@ -249,7 +249,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
       // Busca o serviço relacionado
       const service = await storage.getService(appointment.serviceId);
       const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-      const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+      const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
       if (isCilios && isIrece && !isAdmin) {
         // Monta mensagem e URL do WhatsApp
         const msg =
@@ -507,7 +507,7 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
 
     try {    // Ajuste para repassar taxa do cartão ao cliente (apenas para adiantamento cílios/Irecê)
       // Considera que price está em centavos (ex: 3000 = R$ 30,00)
-      const isCiliosIrece = bookingData?.local?.toLowerCase() === "irece" && bookingData?.serviceName?.toLowerCase().includes("cílios");
+      const isCiliosIrece = bookingData?.local?.toLowerCase() === "irecê" && bookingData?.serviceName?.toLowerCase().includes("cílios");
       const isAdiantamento = title?.toLowerCase().includes("adiantamento");
       // Taxa Mercado Pago padrão cartão: 4,97% (0,0497)
       const TAXA_CARTAO = 0.0497;

@@ -10,8 +10,6 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Service } from "@shared/schema";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { useLocation } from "wouter";
-// Popover não está sendo usado, mas vou manter caso seja para uso futuro.
-// import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { QuestionMarkIcon } from "./ui/question-mark-icon";
 
 const bookingSchema = z.object({
@@ -72,7 +70,6 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   const [selectedService, setSelectedService] = useState<Service | null>(null); // Mantido para compatibilidade e lógica de adiantamento original
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedLocal, setSelectedLocal] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Não parece ativamente usado, mas mantido
   const [isEditing, setIsEditing] = useState(!!editData);
   const [selectedServices, setSelectedServices] = useState<Record<string, Service | null>>({});
   const { toast } = useToast();
@@ -125,7 +122,6 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       setSelectedTime("");
       setSelectedLocal("");
       setSelectedServices({});
-      setSelectedCategory(null);
       queryClient.invalidateQueries({ queryKey: ["/api/available-times"] });
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] }); // Para atualizar listas de agendamentos, se houver
     },
@@ -156,7 +152,6 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       setSelectedTime("");
       setSelectedLocal("");
       setSelectedServices({});
-      setSelectedCategory(null);
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/available-times"] });
     },
@@ -174,7 +169,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
   // Verifica se algum serviço selecionado é cílios e em Irecê
   const hasCiliosIrece = Object.values(selectedServices).some(
-    s => s && s.category === "cílios" && s.local?.toLowerCase() === "irece"
+    s => s && s.category === "cílios" && s.local?.toLowerCase() === "irecê"
   );
 
 
@@ -346,10 +341,10 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
   // Corrigido nome da variável: agora apenas 'servicesCampo'
   const servicesCampo = services?.filter(s => s.local?.toLowerCase() === "campo formoso");
-  const servicesIrece = services?.filter(s => s.local?.toLowerCase() === "irece");
+  const servicesIrece = services?.filter(s => s.local?.toLowerCase() === "irecê");
 
   let activeServicesForGrouping: Service[] | undefined = undefined;
-  if (selectedLocal.toLowerCase() === "irece") {
+  if (selectedLocal.toLowerCase() === "irecê") {
     activeServicesForGrouping = servicesIrece;
   } else if (selectedLocal.toLowerCase() === "campo formoso") {
     activeServicesForGrouping = servicesCampo;
@@ -365,7 +360,11 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     return acc;
   }, {} as Record<string, Service[]>);
 
-  const orderedCategories = categoryOrder.filter(cat => groupedServices[cat] && groupedServices[cat].length > 0);
+  // Gera lista de categorias: primeiro as da ordem fixa, depois as novas
+  const orderedCategories = [
+    ...categoryOrder.filter(cat => groupedServices[cat] && groupedServices[cat].length > 0),
+    ...Object.keys(groupedServices).filter(cat => !categoryOrder.includes(cat))
+  ];
 
   useEffect(() => {
     if (editData && services && services.length > 0) {
@@ -463,7 +462,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
             <div className="mt-8" id="local-escolha">
               <label className="block text-lg font-semibold text-charcoal mb-4">1. Escolha o Local</label>
               <div className="flex gap-4">
-                {["campo formoso", "irece"].map((local) => (
+                {["Campo Formoso", "Irecê"].map((local) => (
                   <button
                     type="button"
                     key={local}

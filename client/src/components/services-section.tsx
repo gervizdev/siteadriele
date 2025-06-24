@@ -62,8 +62,8 @@ export default function ServicesSection() {
     ? Object.values(
       services.reduce((acc, service) => {
         const key = `${service.category}-${service.name}`;
-        // Prioriza o serviço de "irece", senão pega o primeiro encontrado
-        if (!acc[key] && service.local === "irece") {
+        // Prioriza o serviço de "Irecê", senão pega o primeiro encontrado
+        if (!acc[key] && service.local === "Irecê") {
           acc[key] = service;
         }
         return acc;

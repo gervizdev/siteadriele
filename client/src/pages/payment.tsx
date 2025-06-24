@@ -36,7 +36,7 @@ export default function PaymentPage() {
     }
   });
   const totalPrice = bookingData?.servicePrice || 0;
-  const hasCiliosIrece = bookingData?.local?.toLowerCase() === "irece" && bookingData?.serviceName?.toLowerCase().includes("cílios");
+  const hasCiliosIrece = bookingData?.local?.toLowerCase() === "irecê" && bookingData?.serviceName?.toLowerCase().includes("cílios");
 
   // Calcula valor do adiantamento com taxa, se vier do backend
   const valorAdiantamentoComTaxa = bookingData?.valorAdiantamentoComTaxa;

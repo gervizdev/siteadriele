@@ -510,7 +510,7 @@ export default function AdminPanel() {
                           // Busca o serviço relacionado ao agendamento
                           const service = services?.find(s => s.id === appointment.serviceId);
                           const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
                           if (isCilios && isIrece) {
                             toast({
                               title: "Cancelamento bloqueado",
@@ -524,13 +524,13 @@ export default function AdminPanel() {
                         className={`text-red-600 hover:text-red-700 hover:bg-red-50 ${(() => {
                           const service = services?.find(s => s.id === appointment.serviceId);
                           const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
                           return (isCilios && isIrece) ? 'opacity-50 cursor-not-allowed' : '';
                         })()}`}
                         disabled={(() => {
                           const service = services?.find(s => s.id === appointment.serviceId);
                           const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irece";
+                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
                           return Boolean(isCilios && isIrece);
                         })()}
                       >
@@ -740,7 +740,7 @@ export default function AdminPanel() {
                   >
                     <option value="">Selecione o local</option>
                     <option value="campo formoso">Campo Formoso</option>
-                    <option value="irece">Irecê</option>
+                    <option value="irecê">Irecê</option>
                   </select>
                 </div>
                 <Button
@@ -853,6 +853,9 @@ export default function AdminPanel() {
                           >
                             {slot.isAvailable ? "Disponível" : "Indisponível"}
                           </span>
+                          <span>
+                            {slot.local ? `(${slot.local})` : ""}
+                          </span>
                         </div>
                         <Button
                           onClick={() => setSlotToDelete(slot.id)}
@@ -916,11 +919,16 @@ export default function AdminPanel() {
                 </div>
                 <div>
                   <Label>Local</Label>
-                  <Input
+                  <select
                     value={serviceForm.local}
                     onChange={e => setServiceForm(f => ({ ...f, local: e.target.value }))}
                     required
-                  />
+                    className="w-full rounded-xl border border-gray-300 p-2"
+                  >
+                    <option value="">Selecione o local</option>
+                    <option value="campo formoso">Campo Formoso</option>
+                    <option value="irecê">Irecê</option>
+                  </select>
                 </div>
                 <div>
                   <Label>Preço (em reais)</Label>
@@ -962,7 +970,7 @@ export default function AdminPanel() {
             </div>
             {/* Lista de serviços */}
             <div className="grid md:grid-cols-2 gap-8">
-              {["campo formoso", "irece"].map(local => (
+              {["campo formoso", "irecê"].map(local => (
                 <div key={local}>
                   <h3 className="text-lg font-bold mb-4 capitalize text-deep-rose">{local}</h3>
                   <div className="grid gap-4">
