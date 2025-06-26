@@ -145,8 +145,8 @@ export function registerRoutes(app: any): Server {
       const todayStr = formatTz(nowBahia, "yyyy-MM-dd", { timeZone: TIMEZONE });
       const currentTime = formatTz(nowBahia, "HH:mm", { timeZone: TIMEZONE });
 
-      // Restringe horários disponíveis para 24h de antecedência
-      const minDateTime = new Date(nowBahia.getTime() + 24 * 60 * 60 * 1000); // 24h depois do agora
+      // Restringe horários disponíveis para 8h de antecedência
+      const minDateTime = new Date(nowBahia.getTime() + 8 * 60 * 60 * 1000); // 8h depois do agora
       const minDateStr = formatTz(minDateTime, "yyyy-MM-dd", { timeZone: TIMEZONE });
       const minTimeStr = formatTz(minDateTime, "HH:mm", { timeZone: TIMEZONE });
 
