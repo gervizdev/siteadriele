@@ -119,7 +119,10 @@ export function CreateAppointmentForm({ onSuccess }: { onSuccess: () => void; })
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      const service = services.find(s => s.id === Number(data.serviceId));
+      const service = services?.find(s => s.id === Number(data.serviceId));
+      if (!service) {
+        throw new Error("Serviço não encontrado ou ainda não carregado.");
+      }
       const payload = {
         ...data,
         serviceId: Number(data.serviceId),
