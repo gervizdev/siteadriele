@@ -1008,7 +1008,18 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
         });
         return res.sendStatus(200);
       }
-      // ...existing code...
+      // Restringe acesso apenas aos chat_ids autorizados
+      if (!TELEGRAM_CHAT_IDS.includes(String(chatId))) {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: "Acesso negado. Você não tem permissão para usar este bot."
+          })
+        });
+        return res.sendStatus(200);
+      }
       if (mesMatch) {
         const mes = mesMatch[1];
         const appointments = await storage.getAppointments();
@@ -1051,6 +1062,40 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
           method: "POST",
           body: formData as any
+        });
+        return res.sendStatus(200);
+      } else if (/^\/agenda$/i.test(text)) {
+        const appointments = await storage.getAppointments();
+        // Filtra apenas agendamentos futuros
+        const now = new Date();
+        const ags = appointments.filter(a => new Date(`${a.date}T${a.time}`) >= now);
+        if (ags.length === 0) {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text: `Nenhum agendamento futuro encontrado.` })
+          });
+          return res.sendStatus(200);
+        }
+        // Agrupa por data
+        const grouped: Record<string, typeof ags> = {};
+        for (const a of ags) {
+          if (!grouped[a.date]) grouped[a.date] = [];
+          grouped[a.date].push(a);
+        }
+        // Monta mensagem
+        let msg = '';
+        Object.keys(grouped).sort().forEach(date => {
+          msg += `*${date}*\n`;
+          grouped[date].sort((a, b) => a.time.localeCompare(b.time)).forEach(a => {
+            msg += `${a.clientName} ${a.time} ${a.serviceName}\n`;
+          });
+          msg += '\n';
+        });
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: msg.trim(), parse_mode: "Markdown" })
         });
         return res.sendStatus(200);
       } else {
