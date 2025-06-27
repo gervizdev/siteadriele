@@ -24,6 +24,7 @@ export const appointments = pgTable("appointments", {
   isFirstTime: boolean("is_first_time").notNull().default(true),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  clientShowedUp: boolean("client_showed_up"), // novo campo, pode ser null
 });
 
 export const contactMessages = pgTable("contact_messages", {

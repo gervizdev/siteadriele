@@ -10,6 +10,8 @@ import path from "path";
 import { toZonedTime, format as formatTz } from "date-fns-tz";
 import webpush from "web-push";
 import fetch from "node-fetch";
+import { gerarRelatorioMensalXLSX, gerarRelatorioAnualXLSX } from "./reports.js";
+import FormData from "form-data";
 
 // Carrega o Access Token do Mercado Pago das variáveis de ambiente
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -267,6 +269,16 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
           whatsappUrl
         });
       }
+      // Exclui o slot correspondente ao agendamento (ignora caixa e acento)
+      const normalize = (str: string) => str?.normalize('NFD').replace(/[^\w\s]/g, '').toLowerCase().trim();
+      const slots = await storage.getAvailableSlots(appointment.date);
+      const slotToDelete = slots.find(s =>
+        s.time === appointment.time &&
+        normalize(s.local) === normalize(service?.local || "")
+      );
+      if (slotToDelete) {
+        await storage.deleteAvailableSlot(slotToDelete.id);
+      }
       await storage.deleteAppointment(Number(id));
       res.json({ message: "Appointment deleted successfully" });
     } catch (err) {
@@ -278,30 +290,43 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
     }
   });
 
-  // Get appointments (with optional email filter)
+  // Get appointments (sempre inclui o local do serviço)
   app.get("/api/appointments", async (req: Request, res: Response) => {
     try {
       const { email } = req.query;
-      let appointments;
+      let appointments = await storage.getAppointments();
+      const allServices = await storage.getServices();
+      // Sempre inclui o local do serviço correspondente
+      appointments = appointments.map(a => {
+        if (!(a as any).local && a.serviceId) {
+          const service = allServices.find((s: any) => s.id === a.serviceId);
+          return { ...a, local: service?.local || "" } as Appointment & { local: string };
+        }
+        // Se já tem local, mantém
+        return a;
+      });
       if (email) {
-        const allAppointments = await storage.getAppointments();
-        const allServices = await storage.getServices();
-        appointments = allAppointments.filter(a => a.clientEmail === email);
-        // Corrige local vazio: se local não existir, tenta buscar pelo serviço
-        appointments = appointments.map(a => {
-          if (!(a as any).local && a.serviceId) {
-            const service = allServices.find((s: any) => s.id === a.serviceId);
-            return { ...a, local: service?.local || "" } as Appointment & { local: string };
-          }
-          return a;
-        });
-      } else {
-        appointments = await storage.getAppointments();
+        appointments = appointments.filter(a => a.clientEmail === email);
       }
       res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Buscar agendamentos por nome da cliente
+  app.get("/api/appointments/search", async (req: Request, res: Response) => {
+    try {
+      const { name } = req.query;
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ message: "Nome é obrigatório" });
+      }
+      const results = await storage.getAppointmentsByClientName(name);
+      res.json(results);
+    } catch (error) {
+      console.error("Erro ao buscar agendamentos por nome:", error);
+      res.status(500).json({ message: "Erro ao buscar agendamentos" });
     }
   });
 
@@ -925,6 +950,121 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
       res.json({ status: data.status, status_detail: data.status_detail });
     } catch (e) {
       res.status(500).json({ error: 'Erro ao consultar status do pagamento' });
+    }
+  });
+
+  // Atualizar se a cliente compareceu
+  app.patch("/api/appointments/:id/showed-up", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { showedUp } = req.body;
+      if (typeof showedUp !== "boolean") {
+        return res.status(400).json({ message: "Campo showedUp deve ser boolean" });
+      }
+      const updated = await storage.updateAppointmentShowedUp(Number(id), showedUp);
+      res.json(updated);
+    } catch (error) {
+      console.error("Erro ao atualizar presença da cliente:", error);
+      res.status(500).json({ message: "Erro ao atualizar presença da cliente" });
+    }
+  });
+
+  // Webhook do Telegram para comandos de relatório
+  app.post("/api/telegram-webhook", async (req: Request, res: Response) => {
+    try {
+      const body = req.body;
+      const message = body.message;
+      if (!message || !message.text) return res.sendStatus(200);
+      const chatId = message.chat.id;
+      const text = message.text.trim();
+      // Regex para /mês YYYY-MM ou /ano YYYY
+      const mesMatch = text.match(/^\/m[êe]s\s+(\d{4}-\d{2})$/i);
+      const anoMatch = text.match(/^\/ano\s+(\d{4})$/i);
+      // Se usuário enviar apenas /mes ou /mês
+      if (/^\/m[êe]s$/i.test(text)) {
+        const now = new Date();
+        const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: `Por favor, envie o comando no formato:\n/mes ${mesAtual}`
+          })
+        });
+        return res.sendStatus(200);
+      }
+      // Se usuário enviar apenas /ano
+      if (/^\/ano$/i.test(text)) {
+        const now = new Date();
+        const anoAtual = `${now.getFullYear()}`;
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: `Por favor, envie o comando no formato:\n/ano ${anoAtual}`
+          })
+        });
+        return res.sendStatus(200);
+      }
+      // ...existing code...
+      if (mesMatch) {
+        const mes = mesMatch[1];
+        const appointments = await storage.getAppointments();
+        const services = await storage.getServices();
+        const ags = appointments.filter(a => a.date.slice(0, 7) === mes && new Date(`${a.date}T${a.time}`) < new Date());
+        if (ags.length === 0) {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text: `Nenhum agendamento encontrado para o mês ${mes}.` })
+          });
+          return res.sendStatus(200);
+        }
+        const filePath = await gerarRelatorioMensalXLSX(ags, mes, services, true);
+        const formData = new FormData();
+        formData.append("chat_id", chatId);
+        formData.append("document", fs.createReadStream(filePath), { filename: `relatorio-mensal-${mes}.xlsx` });
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+          method: "POST",
+          body: formData as any
+        });
+        return res.sendStatus(200);
+      } else if (anoMatch) {
+        const ano = anoMatch[1];
+        const appointments = await storage.getAppointments();
+        const services = await storage.getServices();
+        const ags = appointments.filter(a => a.date.slice(0, 4) === ano && new Date(`${a.date}T${a.time}`) < new Date());
+        if (ags.length === 0) {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text: `Nenhum agendamento encontrado para o ano ${ano}.` })
+          });
+          return res.sendStatus(200);
+        }
+        const filePath = await gerarRelatorioAnualXLSX(ags, ano, services, true);
+        const formData = new FormData();
+        formData.append("chat_id", chatId);
+        formData.append("document", fs.createReadStream(filePath), { filename: `relatorio-anual-${ano}.xlsx` });
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+          method: "POST",
+          body: formData as any
+        });
+        return res.sendStatus(200);
+      } else {
+        // Comando não reconhecido
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: "Comando não reconhecido. Use /mês YYYY-MM ou /ano YYYY." })
+        });
+        return res.sendStatus(200);
+      }
+    } catch (err) {
+      console.error("[TELEGRAM WEBHOOK] Erro:", err);
+      res.sendStatus(500);
     }
   });
 

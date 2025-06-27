@@ -131,6 +131,15 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateAppointmentShowedUp(id: number, showedUp: boolean): Promise<Appointment> {
+    const [updated] = await db
+      .update(appointments)
+      .set({ clientShowedUp: showedUp })
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteAppointment(id: number): Promise<void> {
     console.log("Deletando agendamento id:", id);
     const result = await db.delete(appointments).where(eq(appointments.id, id));
@@ -138,6 +147,15 @@ export class DatabaseStorage implements IStorage {
     if (result.rowCount !== undefined && result.rowCount === 0) {
       throw new Error("Agendamento não encontrado para exclusão");
     }
+  }
+
+  // Buscar agendamentos por nome da cliente (case/acento-insensitive)
+  async getAppointmentsByClientName(name: string): Promise<Appointment[]> {
+    // Busca por nome ignorando caixa e acento
+    return await db
+      .select()
+      .from(appointments)
+      .where(sql`unaccent(lower(client_name)) LIKE unaccent(lower(${`%${name}%`}))`);
   }
 
   // Contact Messages

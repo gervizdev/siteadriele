@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, User, Mail, Phone, MessageSquare, Plus, Trash2, Edit2, Scissors } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import type { Appointment, ContactMessage, AvailableSlot, Service } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import BookingSection from "@/components/booking-section";
+import * as XLSX from "xlsx";
+import { AppointmentList } from "@/components/admin/AppointmentList";
+import { AppointmentSwitcher } from "@/components/admin/AppointmentSwitcher";
+import { AppointmentFilters } from "@/components/admin/AppointmentFilters";
+import { RelatorioButtons } from "@/components/admin/RelatorioButtons";
+import { Scissors, Mail, Phone, Edit2, Trash2, MessageSquare, Plus, Clock } from "lucide-react";
 
 export default function AdminPanel() {
   // HOOKS E ESTADOS DEVEM VIR PRIMEIRO!
@@ -37,6 +42,18 @@ export default function AdminPanel() {
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [slotToDelete, setSlotToDelete] = useState<number|null>(null);
   const [selectedSlotLocal, setSelectedSlotLocal] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const today = new Date();
+    return today.toISOString().slice(0, 7); // yyyy-mm do mês atual
+  });
+  const [searchName, setSearchName] = useState("");
+  // Adiciona estado para o ano selecionado
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const today = new Date();
+    return today.getFullYear().toString();
+  });
+  // Estado para alternar entre passados e futuros
+  const [showFuture, setShowFuture] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -56,6 +73,16 @@ export default function AdminPanel() {
     queryKey: ["/api/services"],
     enabled: activeTab === "services",
   });
+
+  // Filtros de agendamento (depois do hook de appointments)
+  const pastAppointments = (appointments || [])
+    .filter(a => new Date(`${a.date}T${a.time}`) < new Date())
+    .filter(a => a.date.startsWith(selectedMonth))
+    .filter(a => a.clientName.toLowerCase().includes(searchName.toLowerCase()));
+  const futureAppointments = (appointments || [])
+    .filter(a => new Date(`${a.date}T${a.time}`) >= new Date())
+    .filter(a => a.clientName.toLowerCase().includes(searchName.toLowerCase()));
+  const monthAppointments = (appointments || []).filter(a => a.date.slice(0, 7) === selectedMonth && a.clientName.toLowerCase().includes(searchName.toLowerCase()));
 
   const createSlotMutation = useMutation({
     mutationFn: async (data: { date: string; time: string; isAvailable: boolean; local: string }) => {
@@ -259,6 +286,9 @@ export default function AdminPanel() {
     deleteSlotMutation.mutate(id);
   };
 
+  const handleEditAppointment = (appointment: Appointment) => setEditingAppointment(appointment);
+  const handleDeleteAppointment = (id: number) => deleteAppointmentMutation.mutate(id);
+
   // Remove automaticamente todos os horários passados, inclusive de dias e meses anteriores, ao carregar qualquer data na tela de administração.
   useEffect(() => {
     if (slots && slots.length > 0) {
@@ -354,6 +384,18 @@ export default function AdminPanel() {
     );
   }
 
+  // Filtra agendamentos passados e futuros
+  const pastAppointmentsFiltered = (appointments || [])
+    .filter(a => new Date(`${a.date}T${a.time}`) < new Date())
+    .filter(a => a.date.startsWith(selectedMonth))
+    .filter(a => a.clientName.toLowerCase().includes(searchName.toLowerCase()));
+  const futureAppointmentsFiltered = (appointments || [])
+    .filter(a => new Date(`${a.date}T${a.time}`) >= new Date())
+    .filter(a => a.clientName.toLowerCase().includes(searchName.toLowerCase()));
+
+  console.log('DEBUG appointments:', appointments, 'selectedMonth:', selectedMonth, 'filtro:', (appointments||[]).map(a => ({date: a.date, time: a.time, slice: a.date?.slice(0,7), isPast: new Date(`${a.date}T${a.time}`) < new Date()})));
+  console.log('DEBUG filtro final:', (appointments||[]).filter(a => a.date.slice(0, 7) === selectedMonth && new Date(`${a.date}T${a.time}`) < new Date()));
+
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
@@ -425,127 +467,77 @@ export default function AdminPanel() {
         {/* Appointments Tab */}
         {activeTab === "appointments" && (
           <div>
-            <h2 className="font-playfair text-3xl font-bold text-charcoal mb-6">
-              Agendamentos ({appointments?.length || 0})
-            </h2>
-            
-            {appointmentsLoading ? (
-              <div className="grid gap-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
-                    <div className="bg-gray-300 h-6 rounded mb-4"></div>
-                    <div className="bg-gray-300 h-4 rounded mb-2"></div>
-                    <div className="bg-gray-300 h-4 rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : appointments && appointments.length > 0 ? (
-              <div className="grid gap-4">
-                {appointments.map((appointment) => (
-                  <div key={appointment.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="font-semibold text-lg text-charcoal">
-                        {appointment.serviceName}
-                      </h3>
-                      <span className="bg-rose-primary text-white px-3 py-1 rounded-full text-sm font-medium">
-                        {formatPrice(appointment.servicePrice)}
-                      </span>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="text-deep-rose h-5 w-5" />
-                        <span>{formatDate(appointment.date)}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="text-deep-rose h-5 w-5" />
-                        <span>{appointment.time}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <User className="text-deep-rose h-5 w-5" />
-                        <span>{appointment.clientName}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Phone className="text-deep-rose h-5 w-5" />
-                        <span>{appointment.clientPhone}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Mail className="text-deep-rose h-5 w-5" />
-                      <span>{appointment.clientEmail}</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className={`px-3 py-1 rounded-full text-sm ${
-                        appointment.isFirstTime 
-                          ? "bg-gold text-white" 
-                          : "bg-gray-200 text-gray-700"
-                      }`}>
-                        {appointment.isFirstTime ? "Primeira vez" : "Cliente retornante"}
-                      </span>
-                    </div>
-                    
-                    {appointment.notes && (
-                      <div className="mt-4 p-3 bg-warm-gray rounded-lg">
-                        <p className="text-sm text-gray-600">
-                          <strong>Observações:</strong> {appointment.notes}
-                        </p>
-                      </div>
-                    )}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setEditingAppointment(null)}
+              >
+                Novo Agendamento
+              </Button>
+              <RelatorioButtons
+                onRelatorioMes={() => {
+                  if (!appointments) {
+                    toast({ title: "Nenhum agendamento encontrado.", variant: "destructive" });
+                    return;
+                  }
+                  const ags = (appointments||[]).filter(a => a.date.slice(0, 7) === selectedMonth && new Date(`${a.date}T${a.time}`) < new Date());
+                  if (ags.length === 0) {
+                    toast({ title: "Nenhum agendamento encontrado para o mês selecionado.", variant: "destructive" });
+                    return;
+                  }
+                  gerarRelatorioMensalXLSX(ags, selectedMonth);
+                }}
+                onRelatorioAno={() => {
+                  if (!appointments) {
+                    toast({ title: "Nenhum agendamento encontrado.", variant: "destructive" });
+                    return;
+                  }
+                  const agsAno = (appointments||[]).filter(a => a.date.slice(0, 4) === selectedYear && new Date(`${a.date}T${a.time}`) < new Date());
+                  if (agsAno.length === 0) {
+                    toast({ title: "Nenhum agendamento encontrado para o ano selecionado.", variant: "destructive" });
+                    return;
+                  }
+                  gerarRelatorioAnualXLSX(agsAno, selectedYear);
+                }}
+              />
+            </div>
+            <AppointmentFilters
+              selectedMonth={selectedMonth}
+              setSelectedMonth={setSelectedMonth}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+              searchName={searchName}
+              setSearchName={setSearchName}
+            />
+            <div className="mb-6 flex justify-center">
+              <AppointmentSwitcher showFuture={showFuture} setShowFuture={setShowFuture} />
+            </div>
+            <div>
+              {showFuture ? (
+                // Lista de futuros
+                <AppointmentList
+                  appointments={futureAppointmentsFiltered}
+                  services={services}
+                  onEdit={handleEditAppointment}
+                  onDelete={a => handleDeleteAppointment(a.id)}
+                  emptyMessage="Nenhum agendamento futuro encontrado."
+                  title={`Futuros (${futureAppointmentsFiltered.length})`}
+                />
+              ) : (
+                // Lista de passados
+                <AppointmentList
+                  appointments={pastAppointmentsFiltered}
+                  services={services}
+                  onEdit={handleEditAppointment}
+                  onDelete={a => handleDeleteAppointment(a.id)}
+                  emptyMessage="Nenhum agendamento passado encontrado."
+                  title={`Passados (${pastAppointmentsFiltered.length})`}
+                />
+              )}
+            </div>
 
-                    <div className="flex gap-2 mt-4 justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingAppointment(appointment)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                      >
-                        <Edit2 className="w-4 h-4 mr-1" /> Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Busca o serviço relacionado ao agendamento
-                          const service = services?.find(s => s.id === appointment.serviceId);
-                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
-                          if (isCilios && isIrece) {
-                            toast({
-                              title: "Cancelamento bloqueado",
-                              description: "O cancelamento de cílios em Irecê só pode ser feito via WhatsApp pelo cliente.",
-                              variant: "destructive"
-                            });
-                            return;
-                          }
-                          setDeleteType({ type: 'appointment', id: appointment.id });
-                        }}
-                        className={`text-red-600 hover:text-red-700 hover:bg-red-50 ${(() => {
-                          const service = services?.find(s => s.id === appointment.serviceId);
-                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
-                          return (isCilios && isIrece) ? 'opacity-50 cursor-not-allowed' : '';
-                        })()}`}
-                        disabled={(() => {
-                          const service = services?.find(s => s.id === appointment.serviceId);
-                          const isCilios = service && service.category && service.category.toLowerCase().includes("cílios");
-                          const isIrece = service && service.local && service.local.toLowerCase() === "irecê";
-                          return Boolean(isCilios && isIrece);
-                        })()}
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" /> Excluir
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-600">Nenhum agendamento encontrado</p>
-              </div>
-            )}
+            {/* Todos os agendamentos do mês selecionado */}
+            
           </div>
         )}
 
@@ -740,7 +732,7 @@ export default function AdminPanel() {
                   >
                     <option value="">Selecione o local</option>
                     <option value="campo formoso">Campo Formoso</option>
-                    <option value="irecê">Irecê</option>
+                    <option value="irece">Irecê</option>
                   </select>
                 </div>
                 <Button
@@ -853,9 +845,6 @@ export default function AdminPanel() {
                           >
                             {slot.isAvailable ? "Disponível" : "Indisponível"}
                           </span>
-                          <span>
-                            {slot.local ? `(${slot.local})` : ""}
-                          </span>
                         </div>
                         <Button
                           onClick={() => setSlotToDelete(slot.id)}
@@ -919,16 +908,11 @@ export default function AdminPanel() {
                 </div>
                 <div>
                   <Label>Local</Label>
-                  <select
+                  <Input
                     value={serviceForm.local}
                     onChange={e => setServiceForm(f => ({ ...f, local: e.target.value }))}
                     required
-                    className="w-full rounded-xl border border-gray-300 p-2"
-                  >
-                    <option value="">Selecione o local</option>
-                    <option value="campo formoso">Campo Formoso</option>
-                    <option value="irecê">Irecê</option>
-                  </select>
+                  />
                 </div>
                 <div>
                   <Label>Preço (em reais)</Label>
@@ -970,7 +954,7 @@ export default function AdminPanel() {
             </div>
             {/* Lista de serviços */}
             <div className="grid md:grid-cols-2 gap-8">
-              {["campo formoso", "irecê"].map(local => (
+              {["campo formoso", "irece"].map(local => (
                 <div key={local}>
                   <h3 className="text-lg font-bold mb-4 capitalize text-deep-rose">{local}</h3>
                   <div className="grid gap-4">
@@ -1109,4 +1093,157 @@ export default function AdminPanel() {
       </Dialog>
     </div>
   );
+}
+
+// Função simples para exportação de relatório (substitua pela real depois)
+function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
+  const services: Service[] = (window as any).adminServices || [];
+  const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
+  const locais = Array.from(new Set(ags.map(getLocal))) as string[];
+  const agsPorLocal = Object.fromEntries(locais.map(local => [local, ags.filter(a => getLocal(a) === local)]));
+
+  // Função para calcular métricas por local
+  function getMetricaLocal(agsLocal: Appointment[]) {
+    const total = agsLocal.length;
+    const faltaram = agsLocal.filter(a => a.clientShowedUp === false).length;
+    const compareceram = agsLocal.filter(a => a.clientShowedUp === true).length;
+    const primeiraVez = agsLocal.filter(a => a.isFirstTime === true).length;
+    const retornantes = agsLocal.filter(a => a.isFirstTime === false).length;
+    const valor = agsLocal.reduce((acc, a) => acc + (a.servicePrice || 0), 0) / 100;
+    const percFaltaram = total ? (faltaram / total * 100).toFixed(1) + '%' : '0%';
+    const percCompareceram = total ? (compareceram / total * 100).toFixed(1) + '%' : '0%';
+    return {
+      'Qtd. Agendamentos': total,
+      'Soma dos Valores': valor,
+      'Faltaram': faltaram,
+      'Compareceram': compareceram,
+      '% Faltaram': percFaltaram,
+      '% Compareceram': percCompareceram,
+      'Primeira vez': primeiraVez,
+      'Retornantes': retornantes
+    };
+  }
+
+  // Página principal (resumo) - orientação vertical
+  const resumoPorLocal = locais.map(local => {
+    const agsLocal = agsPorLocal[local];
+    return {
+      [local.charAt(0).toUpperCase() + local.slice(1)]: getMetricaLocal(agsLocal)
+    };
+  });
+  const totalObj = { TOTAL: getMetricaLocal(ags) };
+  const allLocais = [...resumoPorLocal, totalObj];
+  // Transpor: cada métrica vira linha, cada local/total vira coluna
+  const metricaKeys = Object.keys(getMetricaLocal(ags));
+  const header = ['Métrica', ...allLocais.map(obj => Object.keys(obj)[0])];
+  const data = metricaKeys.map(key => [key, ...allLocais.map(obj => (Object.values(obj)[0] as any)[key])]);
+  const wsResumo = XLSX.utils.aoa_to_sheet([header, ...data]);
+  wsResumo['!cols'] = header.map(h => ({ wch: Math.max(h.length + 2, 18), alignment: { horizontal: 'right' } }));
+  // Ajusta alinhamento à direita para todas as células (exceto coluna 0)
+  for (let R = 1; R <= data.length; ++R) {
+    for (let C = 1; C < header.length; ++C) {
+      const cell = XLSX.utils.encode_cell({ r: R, c: C });
+      if (wsResumo[cell]) wsResumo[cell].s = { alignment: { horizontal: 'right' } };
+    }
+  }
+
+  // Páginas por local (mantém igual)
+  const sheetsPorLocal = locais.map(local => {
+    const agsLocal = agsPorLocal[local];
+    const ws = XLSX.utils.json_to_sheet(agsLocal.map(a => ({
+      Data: a.date,
+      Horário: a.time,
+      Cliente: a.clientName,
+      Email: a.clientEmail,
+      Telefone: a.clientPhone,
+      Serviço: a.serviceName,
+      Valor: (a.servicePrice / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      Observações: a.notes || ''
+    })));
+    ws['!cols'] = [
+      { wch: 12 }, // Data
+      { wch: 8 },  // Horário
+      { wch: 22 }, // Cliente
+      { wch: 28 }, // Email
+      { wch: 14 }, // Telefone
+      { wch: 28 }, // Serviço
+      { wch: 10 }, // Valor
+      { wch: 30 }  // Observações
+    ];
+    return { name: local.charAt(0).toUpperCase() + local.slice(1), ws };
+  });
+
+  // Monta o workbook
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+  sheetsPorLocal.forEach(({ name, ws }) => XLSX.utils.book_append_sheet(wb, ws, name));
+  XLSX.writeFile(wb, `relatorio-agendamentos-${selectedMonth}.xlsx`);
+}
+
+// Função para gerar relatório anual
+function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string) {
+  const services: Service[] = (window as any).adminServices || [];
+  const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
+  const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const meses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const locais = Array.from(new Set(ags.map(getLocal))) as string[];
+  function getMetricaLocal(agsLocal: Appointment[]): { [key: string]: string | number } {
+    const total = agsLocal.length;
+    const faltaram = agsLocal.filter(a => a.clientShowedUp === false).length;
+    const compareceram = agsLocal.filter(a => a.clientShowedUp === true).length;
+    const primeiraVez = agsLocal.filter(a => a.isFirstTime === true).length;
+    const retornantes = agsLocal.filter(a => a.isFirstTime === false).length;
+    const valor = agsLocal.reduce((acc, a) => acc + (a.servicePrice || 0), 0) / 100;
+    const percFaltaram = total ? (faltaram / total * 100).toFixed(1) + '%' : '0%';
+    const percCompareceram = total ? (compareceram / total * 100).toFixed(1) + '%' : '0%';
+    return {
+      'Qtd. Agendamentos': total,
+      'Soma dos Valores': valor,
+      'Faltaram': faltaram,
+      'Compareceram': compareceram,
+      '% Faltaram': percFaltaram,
+      '% Compareceram': percCompareceram,
+      'Primeira vez': primeiraVez,
+      'Retornantes': retornantes
+    };
+  }
+  // Cabeçalho: Métrica | ...
+  const metricaKeys = Object.keys(getMetricaLocal(ags));
+  // Para cada mês, para cada local, calcula as métricas
+  const header = ['Mês/Local', ...locais.map(local => local.charAt(0).toUpperCase() + local.slice(1)), 'TOTAL'];
+  // Para cada mês, gera uma linha com as métricas de cada local e o total
+  const data: any[][] = [];
+  meses.forEach((mes, idx) => {
+    metricaKeys.forEach((key, i) => {
+      const row = [`${mesesNomes[idx]} - ${key}`];
+      locais.forEach(local => {
+        const agsLocalMes = ags.filter(a => getLocal(a) === local && a.date.slice(5,7) === mes);
+        row.push((getMetricaLocal(agsLocalMes) as any)[key]);
+      });
+      // Total do mês (todos locais)
+      const agsMes = ags.filter(a => a.date.slice(5,7) === mes);
+      row.push((getMetricaLocal(agsMes) as any)[key]);
+      (data as any[][]).push(row);
+    });
+    // Linha em branco para separar meses
+    (data as any[][]).push(Array(header.length).fill(''));
+  });
+  // Formatação: colunas largas, alinhamento à direita, cabeçalho destacado
+  const wsResumo = XLSX.utils.aoa_to_sheet([header, ...data]);
+  wsResumo['!cols'] = header.map(h => ({ wch: Math.max(h.length + 4, 18), alignment: { horizontal: 'right' } }));
+  for (let R = 1; R <= data.length; ++R) {
+    for (let C = 1; C < header.length; ++C) {
+      const cell = XLSX.utils.encode_cell({ r: R, c: C });
+      if (wsResumo[cell]) wsResumo[cell].s = { alignment: { horizontal: 'right' } };
+    }
+  }
+  // Destaca cabeçalho
+  for (let C = 0; C < header.length; ++C) {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (wsResumo[cell]) wsResumo[cell].s = { font: { bold: true }, alignment: { horizontal: 'center' } };
+  }
+  // Monta o workbook
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo Anual');
+  XLSX.writeFile(wb, `relatorio-anual-${selectedYear}.xlsx`);
 }
