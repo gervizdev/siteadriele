@@ -19,7 +19,7 @@ import {
   type InsertAdminPushSubscription
 } from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Services
@@ -196,9 +196,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableTimes(date: string, local?: string): Promise<string[]> {
-    const condition = local
-      ? and(eq(availableSlots.date, date), eq(availableSlots.local, local))
-      : eq(availableSlots.date, date);
+    // Ajuste: compara local ignorando caixa
+    let condition;
+    if (local) {
+      condition = and(
+        eq(availableSlots.date, date),
+        // Usando SQL LOWER para ignorar caixa
+        sql`LOWER(${availableSlots.local}) = LOWER(${local})`
+      );
+    } else {
+      condition = eq(availableSlots.date, date);
+    }
     const dbSlots = await db
       .select()
       .from(availableSlots)

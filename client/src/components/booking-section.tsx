@@ -337,7 +337,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     }, 100);
   };
 
-  const disabledDays = { before: startOfDay(addDays(new Date(), 1)) };
+  const disabledDays = undefined;
 
   // Corrigido nome da variável: agora apenas 'servicesCampo'
   const servicesCampo = services?.filter(s => s.local?.toLowerCase() === "campo formoso");
@@ -640,7 +640,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     })}
                   </div>
                 ) : (
-                    <p className="text-gray-600 text-center py-4">Nenhum horário disponível para esta data. Por favor, selecione outra data.</p>
+                    <p className="text-gray-600 text-center py-4">Nenhum horário disponível nesse local para esta data. Por favor, selecione outra data.</p>
                 )}
                 {errors.time && <p className="mt-2 text-red-500 text-sm">{errors.time.message}</p>}
               </div>

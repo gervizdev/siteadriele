@@ -147,18 +147,20 @@ export function registerRoutes(app: any): Server {
 
       // Restringe horários disponíveis para 8h de antecedência
       const minDateTime = new Date(nowBahia.getTime() + 8 * 60 * 60 * 1000); // 8h depois do agora
-      const minDateStr = formatTz(minDateTime, "yyyy-MM-dd", { timeZone: TIMEZONE });
-      const minTimeStr = formatTz(minDateTime, "HH:mm", { timeZone: TIMEZONE });
-
       const { local } = req.query;
       let availableTimes = await storage.getAvailableTimes(date, typeof local === 'string' ? local : undefined);
 
-      // Se a data for igual à data mínima, filtra horários menores que a hora mínima
-      if (date === minDateStr) {
+      // Converte datas para objetos Date para comparação correta
+      const reqDate = new Date(date + 'T00:00:00-03:00'); // Assume America/Bahia
+      const minDate = new Date(minDateTime.getFullYear(), minDateTime.getMonth(), minDateTime.getDate());
+      // Só aplica o filtro de horário mínimo se a data for igual ao dia mínimo
+      if (reqDate.getTime() === minDate.getTime()) {
+        const minTimeStr = formatTz(minDateTime, "HH:mm", { timeZone: TIMEZONE });
         availableTimes = availableTimes.filter(time => time >= minTimeStr);
       }
-      // Se a data for menor que a data mínima, não retorna horários
-      if (date < minDateStr) {
+      // Nunca bloqueia datas futuras (mesmo de outro mês/ano)
+      // Só bloqueia se a data for antes do dia mínimo
+      if (reqDate < minDate) {
         availableTimes = [];
       }
 
