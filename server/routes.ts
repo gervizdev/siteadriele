@@ -1083,12 +1083,13 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
           if (!grouped[a.date]) grouped[a.date] = [];
           grouped[a.date].push(a);
         }
-        // Monta mensagem
+        // Monta mensagem enumerando e separando por linha
         let msg = '';
         Object.keys(grouped).sort().forEach(date => {
           msg += `*${date}*\n`;
-          grouped[date].sort((a, b) => a.time.localeCompare(b.time)).forEach(a => {
-            msg += `${a.clientName} ${a.time} ${a.serviceName}\n`;
+          grouped[date].sort((a, b) => a.time.localeCompare(b.time)).forEach((a, idx, arr) => {
+            msg += `${idx + 1}. ${a.clientName} ${a.time} ${a.serviceName}\n`;
+            if (idx < arr.length - 1) msg += '---------------------\n';
           });
           msg += '\n';
         });
@@ -1103,7 +1104,7 @@ ${appointment.notes ? `*Observações:* ${appointment.notes}` : ''}`
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: "Comando não reconhecido. Use /mês YYYY-MM ou /ano YYYY." })
+          body: JSON.stringify({ chat_id: chatId, text: "Comando não reconhecido. Utilize a lista de comandos ou digite / para que apareçam sugestões." })
         });
         return res.sendStatus(200);
       }
