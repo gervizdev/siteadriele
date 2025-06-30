@@ -158,6 +158,12 @@ export class DatabaseStorage implements IStorage {
       .where(sql`unaccent(lower(client_name)) LIKE unaccent(lower(${`%${name}%`}))`);
   }
 
+  async markAppointmentTelegramNotified(id: number): Promise<void> {
+    await db.update(appointments)
+      .set({ telegramNotified: true })
+      .where(eq(appointments.id, id));
+  }
+
   // Contact Messages
   async createContactMessage(insertMessage: InsertContactMessage): Promise<ContactMessage> {
     const [message] = await db
@@ -214,27 +220,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAvailableTimes(date: string, local?: string): Promise<string[]> {
-    // Ajuste: compara local ignorando caixa
-    let condition;
-    if (local) {
-      condition = and(
-        eq(availableSlots.date, date),
-        // Usando SQL LOWER para ignorar caixa
-        sql`LOWER(${availableSlots.local}) = LOWER(${local})`
-      );
-    } else {
-      condition = eq(availableSlots.date, date);
-    }
-    const dbSlots = await db
+    // Ajuste: compara local ignorando caixa e acentos
+    // Remove acentos e deixa minúsculo
+    const normalize = (str: string) => str.normalize('NFD').replace(/[^\w\s]/g, '').toLowerCase();
+    let dbSlots = await db
       .select()
       .from(availableSlots)
-      .where(condition);
-
-    // Agora só retorna slots disponíveis
-    return dbSlots
-      .filter((slot: AvailableSlot) => slot.isAvailable)
-      .map((slot: AvailableSlot) => slot.time)
-      .sort();
+      .where(eq(availableSlots.date, date));
+    if (local) {
+      const normalizedLocal = normalize(local);
+      return dbSlots
+        .filter((slot: AvailableSlot) => slot.isAvailable && normalize(slot.local) === normalizedLocal)
+        .map((slot: AvailableSlot) => slot.time)
+        .sort();
+    } else {
+      return dbSlots
+        .filter((slot: AvailableSlot) => slot.isAvailable)
+        .map((slot: AvailableSlot) => slot.time)
+        .sort();
+    }
   }
 
   // Admins

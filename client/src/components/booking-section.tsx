@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQuery as useQueryBase } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,6 +65,16 @@ function getValorAdiantamentoComTaxa(data: any) {
   return '30,00';
 }
 
+// Função auxiliar para calcular o intervalo de horários baseado na quantidade de serviços
+function getTimeInterval(startTime: string, numServices: number, possibleTimes: string[]): string {
+  if (!startTime || numServices <= 1) return startTime;
+  const startIdx = possibleTimes.indexOf(startTime);
+  if (startIdx === -1) return startTime;
+  const endIdx = startIdx + numServices - 1;
+  const endTime = possibleTimes[endIdx] || possibleTimes[possibleTimes.length - 1];
+  return `${startTime}–${endTime}`;
+}
+
 export default function BookingSection({ editData, onEditFinish }: { editData?: BookingFormData & { id: number }, onEditFinish?: () => void } = {}) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | null>(null); // Mantido para compatibilidade e lógica de adiantamento original
@@ -93,6 +103,31 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     },
     enabled: !!selectedDate && !!selectedLocal,
   });
+
+  // Query para buscar todos os agendamentos do dia/local selecionados
+  const { data: appointmentsOfDay = [], isLoading: loadingAppointments } = useQueryBase({
+    queryKey: ["/api/appointments", selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, selectedLocal],
+    queryFn: async () => {
+      if (!selectedDate || !selectedLocal) return [];
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const resp = await fetch(`/api/appointments`);
+      if (!resp.ok) return [];
+      const all = await resp.json();
+      return all.filter((a: any) => a.date === dateStr && a.local?.toLowerCase() === selectedLocal.toLowerCase());
+    },
+    enabled: !!selectedDate && !!selectedLocal,
+  });
+
+  // Lista de horários possíveis do dia (ex: 08:00 até 18:00)
+  function generatePossibleTimes(start = 8, end = 18) {
+    const times: string[] = [];
+    for (let h = start; h <= end; h++) {
+      times.push(`${h.toString().padStart(2, "0")}:00`);
+    }
+    return times;
+  }
+  const possibleTimes = generatePossibleTimes();
+  const occupiedTimes = appointmentsOfDay.map((a: any) => a.time);
 
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch, trigger } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -293,25 +328,38 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   };
 
   const handleServiceSelect = (service: Service | null, category: string) => {
-    const newSelectedServices = { ...selectedServices, [category]: service };
+    let newSelectedServices = { ...selectedServices, [category]: service };
+    // Lógica para garantir que só uma das categorias fique selecionada
+    const cat = service?.category?.toLowerCase() || "";
+    if (cat === "cílios") {
+      // Se selecionar cílios, remove qualquer seleção em "remover extensão de cílios"
+      Object.keys(newSelectedServices).forEach(key => {
+        if (newSelectedServices[key]?.category?.toLowerCase() === "remover extensão de cílios" && newSelectedServices[key]) {
+          newSelectedServices[key] = null;
+        }
+      });
+    } else if (cat === "remover extensão de cílios") {
+      // Se selecionar remover extensão de cílios, remove qualquer seleção em "cílios"
+      Object.keys(newSelectedServices).forEach(key => {
+        if (newSelectedServices[key]?.category?.toLowerCase() === "cílios" && newSelectedServices[key]) {
+          newSelectedServices[key] = null;
+        }
+      });
+    }
     setSelectedServices(newSelectedServices);
-
-    // Atualiza campos do formulário com base no primeiro serviço válido para compatibilidade
-    // ou limpa se nenhum serviço estiver selecionado.
-    const firstValidService = Object.values(newSelectedServices).find(s => s !== null) as Service | undefined;
-
-    if (firstValidService) {
-      setSelectedService(firstValidService); // Mantém selectedService para lógica que possa depender dele
-      setValue("serviceId", firstValidService.id, { shouldValidate: true });
-      setValue("serviceName", firstValidService.name); // Este será sobrescrito em handleBookingSubmit
-      setValue("servicePrice", firstValidService.price); // Este será sobrescrito em handleBookingSubmit
+    const validServices = Object.values(newSelectedServices).filter((s: Service | null): s is Service => s !== null);
+    if (validServices.length > 0) {
+      setSelectedService(validServices[0]);
+      setValue("serviceId", validServices[0].id, { shouldValidate: true });
+      setValue("serviceName", validServices.map(s => s.name).join(", "));
+      setValue("servicePrice", validServices.reduce((acc: number, s) => acc + s.price, 0));
     } else {
       setSelectedService(null);
       setValue("serviceId", 0, { shouldValidate: true });
       setValue("serviceName", "");
       setValue("servicePrice", 0);
     }
-    trigger("serviceId"); // Força a validação do serviceId
+    trigger("serviceId");
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -611,21 +659,41 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                 <label className="block text-lg font-semibold text-charcoal mb-4">4. Selecione o Horário</label>
                 {Object.values(selectedServices).filter(Boolean).length > 1 && (
                   <div className="mb-4 p-3 rounded-xl bg-yellow-100 text-yellow-800 border border-yellow-300 text-sm">
-                    Você selecionou múltiplos serviços. O sistema tentará alocar tempo consecutivo.
-                    A duração exata será confirmada após o agendamento.
+                    Você selecionou múltiplos serviços. O sistema só permitirá agendar se houver dois horários consecutivos disponíveis (ex: 11h e 12h). Caso o próximo horário esteja ocupado, não será possível agendar.
                   </div>
                 )}
-                {timesLoading ? (
+                {timesLoading || loadingAppointments ? (
                   <div className="animate-pulse grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {[1,2,3,4].map(i => <div key={i} className="h-12 bg-gray-200 rounded-xl"></div>)}
                   </div>
                 ) : availableTimes && availableTimes.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {availableTimes?.map((timeSlot: string, idx: number) => {
-                      // A lógica de requiredSlots e isAvailable pode ser complexa e depender da API de available-times.
-                      // Simplificando: por agora, todos os horários retornados são considerados selecionáveis individualmente.
-                      // A lógica de múltiplos slots precisaria de mais informações sobre como a API funciona.
-                      const isSelected = selectedTime === timeSlot;
+                      // Ajuste: máximo de 2 horários ocupados, mesmo para 3+ serviços
+                      const numServices = Math.min(Object.values(selectedServices).filter(Boolean).length, 2);
+                      const isSelected = (() => {
+                        if (numServices <= 1) return selectedTime === timeSlot;
+                        if (!selectedTime) return false;
+                        const startIdx = possibleTimes.indexOf(selectedTime);
+                        const currentIdx = possibleTimes.indexOf(timeSlot);
+                        return currentIdx >= startIdx && currentIdx < startIdx + numServices;
+                      })();
+                      let isAvailable = true;
+                      if (numServices > 1) {
+                        // Para múltiplos serviços, só bloqueia se o próximo(s) horário(s) existir(em) e estiver(em) livre(s)
+                        const currentIdx = possibleTimes.indexOf(timeSlot);
+                        // Só permite selecionar o horário inicial se todos os sucessores necessários estiverem livres
+                        if (selectedTime === "" || selectedTime === timeSlot) {
+                          for (let i = 1; i < numServices; i++) {
+                            const nextTime = possibleTimes[currentIdx + i];
+                            if (!nextTime || occupiedTimes.includes(nextTime)) {
+                              isAvailable = false;
+                              break;
+                            }
+                          }
+                        }
+                      }
+                      if (!isAvailable) return null;
                       return (
                         <button
                           key={idx}
@@ -707,7 +775,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     <p><span className="font-semibold">Serviços:</span> {Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(", ") || "Nenhum"}</p>
                     <p><span className="font-semibold">Local:</span> {selectedLocal ? selectedLocal.charAt(0).toUpperCase() + selectedLocal.slice(1) : "N/A"}</p>
                     <p><span className="font-semibold">Data:</span> {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "N/A"}</p>
-                    <p><span className="font-semibold">Horário:</span> {selectedTime || "N/A"}</p>
+                    <p><span className="font-semibold">Horário:</span> {getTimeInterval(selectedTime, Object.values(selectedServices).filter(Boolean).length, possibleTimes) || "N/A"}</p>
                     <p className="text-base font-semibold mt-3">
                         <span className="font-semibold">Preço Total: </span>
                         {hasCiliosIrece ? (

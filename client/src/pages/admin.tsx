@@ -615,9 +615,12 @@ export default function AdminPanel() {
                 {messages.map((message) => (
                   <div key={message.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="font-semibold text-lg text-charcoal">
-                        {message.name}
-                      </h3>
+                      <div>
+                        <h3 className="font-semibold text-lg text-charcoal">
+                          {message.name}
+                        </h3>
+                        <span className="inline-block text-yellow-600 font-bold text-base mt-1">Nota: {message.rating}/5</span>
+                      </div>
                       <span className="text-sm text-gray-500">
                         {new Date(message.createdAt).toLocaleString("pt-BR")}
                       </span>
@@ -731,8 +734,8 @@ export default function AdminPanel() {
                     className="w-full rounded-xl border border-gray-300 p-2"
                   >
                     <option value="">Selecione o local</option>
-                    <option value="campo formoso">Campo Formoso</option>
-                    <option value="irece">Irecê</option>
+                    <option value="Campo Formoso">Campo Formoso</option>
+                    <option value="Irecê">Irecê</option>
                   </select>
                 </div>
                 <Button
@@ -954,7 +957,7 @@ export default function AdminPanel() {
             </div>
             {/* Lista de serviços */}
             <div className="grid md:grid-cols-2 gap-8">
-              {["campo formoso", "irece"].map(local => (
+              {["Campo Formoso", "Irecê"].map(local => (
                 <div key={local}>
                   <h3 className="text-lg font-bold mb-4 capitalize text-deep-rose">{local}</h3>
                   <div className="grid gap-4">
@@ -962,7 +965,7 @@ export default function AdminPanel() {
                       <div className="text-center">Carregando...</div>
                     ) : services && services.length > 0 ? (
                       [...services]
-                        .filter(service => service.local?.toLowerCase() === local)
+                        .filter(service => service.local?.toLowerCase() === local.toLowerCase())
                         .sort((a, b) => a.name.localeCompare(b.name))
                         .map(service => (
                           <div key={service.id} className="bg-white rounded-2xl p-6 shadow-sm flex justify-between items-center min-h-[170px] h-full">

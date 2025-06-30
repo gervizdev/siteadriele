@@ -194,17 +194,13 @@ export function registerRoutes(app: any): Server {
       } catch (e) {
         console.error('Erro ao buscar local do serviço para notificação Telegram:', e);
       }
-      await sendTelegramToAdmin(
-        `*Novo agendamento recebido!*
-\n*Cliente:* ${validatedData.clientName}
-*E-mail:* ${validatedData.clientEmail}
-*Telefone:* ${validatedData.clientPhone || '-'}
-*Serviço:* ${validatedData.serviceName}
-*Data:* ${validatedData.date}
-*Horário:* ${validatedData.time}
-*Local:* ${local}
-${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
-      );
+      // Verifica se já foi notificado
+      if (!appointment.telegramNotified) {
+        await sendTelegramToAdmin(
+          `*Novo agendamento recebido!*\n*Cliente:* ${validatedData.clientName}\n*E-mail:* ${validatedData.clientEmail}\n*Telefone:* ${validatedData.clientPhone || '-'}\n*Serviço:* ${validatedData.serviceName}\n*Data:* ${validatedData.date}\n*Horário:* ${validatedData.time}\n*Local:* ${local}\n${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
+        );
+        await storage.markAppointmentTelegramNotified(appointment.id);
+      }
       res.status(201).json({
         message: "Appointment created successfully",
         appointment,
@@ -796,17 +792,13 @@ ${validatedData.notes ? `*Observações:* ${validatedData.notes}` : ''}`
               console.error('Erro ao buscar local do serviço para notificação Telegram (webhook):', e);
             }
           }
-          await sendTelegramToAdmin(
-            `*Pagamento aprovado! Novo agendamento confirmado:*
-*Cliente:* ${bookingData.clientName}
-*E-mail:* ${bookingData.clientEmail}
-*Telefone:* ${bookingData.clientPhone || '-'}
-*Serviço:* ${bookingData.serviceName}
-*Data:* ${bookingData.date}
-*Horário:* ${bookingData.time}
-*Local:* ${local}
-${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
-          );
+          // Verifica se já foi notificado
+          if (appointment && !appointment.telegramNotified) {
+            await sendTelegramToAdmin(
+              `*Pagamento aprovado! Novo agendamento confirmado:*\n*Cliente:* ${bookingData.clientName}\n*E-mail:* ${bookingData.clientEmail}\n*Telefone:* ${bookingData.clientPhone || '-'}\n*Serviço:* ${bookingData.serviceName}\n*Data:* ${bookingData.date}\n*Horário:* ${bookingData.time}\n*Local:* ${local}\n${bookingData.notes ? `*Observações:* ${bookingData.notes}` : ''}`
+            );
+            await storage.markAppointmentTelegramNotified(appointment.id);
+          }
           await sendPushToAdmin({
             title: "Novo agendamento confirmado!",
             body: `Cliente: ${bookingData.clientName}\nServiço: ${bookingData.serviceName}\nData: ${bookingData.date} ${bookingData.time}`,

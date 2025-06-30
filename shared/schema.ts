@@ -25,6 +25,7 @@ export const appointments = pgTable("appointments", {
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   clientShowedUp: boolean("client_showed_up"), // novo campo, pode ser null
+  telegramNotified: boolean("telegram_notified").notNull().default(false), // controle de notificação Telegram
 });
 
 export const contactMessages = pgTable("contact_messages", {
