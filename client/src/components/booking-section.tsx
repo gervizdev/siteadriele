@@ -558,7 +558,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
               </div>
             ) : groupedServices && Object.keys(groupedServices).length > 0 ? (
               <div className="mt-8" id="servico-combobox">
-                <label className="block text-lg font-semibold text-charcoal mb-4">2. Selecione o(s) Serviço(s) <span className="text-sm font-normal">(até 3)</span></label>
+                <label className="block text-lg font-semibold text-charcoal mb-4">2. Selecione o(s) Serviço(s)</label>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {orderedCategories.map((category) => (
                     <div key={category} className="flex flex-col">
@@ -568,21 +568,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                         value={selectedServices[category] && typeof selectedServices[category] === 'object' && 'id' in selectedServices[category] ? selectedServices[category]?.id : ''}
                         onChange={e => {
                           const id = Number(e.target.value);
-                          // Novo cálculo: quantos serviços ficariam selecionados APÓS a escolha
-                          const alreadySelected = Object.values(selectedServices).filter(Boolean).length;
-                          const isAddingNew = id && !selectedServices[category];
-                          const newTotal = isAddingNew ? alreadySelected + 1 : alreadySelected;
-                          if (id && newTotal > 3) {
-                            toast({ title: "Limite de serviços", description: "Você pode selecionar no máximo 3 serviços no total.", variant: "default" });
-                            // Reverte seleção
-                            if (selectedServices[category] && typeof selectedServices[category] === 'object' && 'id' in selectedServices[category]) {
-                              const service = selectedServices[category] as Service;
-                              e.target.value = String(service.id);
-                            } else {
-                              e.target.value = '';
-                            }
-                            return;
-                          }
+                          // Removido: lógica de limite de 3 serviços
                           const service = groupedServices?.[category]?.find(s => s.id === id);
                           handleServiceSelect(service || null, category);
                           // Auto-scroll
