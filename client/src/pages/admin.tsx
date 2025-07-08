@@ -485,7 +485,7 @@ export default function AdminPanel() {
                     toast({ title: "Nenhum agendamento encontrado para o mês selecionado.", variant: "destructive" });
                     return;
                   }
-                  gerarRelatorioMensalXLSX(ags, selectedMonth);
+                  gerarRelatorioMensalXLSX(ags, selectedMonth, services);
                 }}
                 onRelatorioAno={() => {
                   if (!appointments) {
@@ -497,7 +497,7 @@ export default function AdminPanel() {
                     toast({ title: "Nenhum agendamento encontrado para o ano selecionado.", variant: "destructive" });
                     return;
                   }
-                  gerarRelatorioAnualXLSX(agsAno, selectedYear);
+                  gerarRelatorioAnualXLSX(agsAno, selectedYear, services);
                 }}
               />
             </div>
@@ -1100,10 +1100,11 @@ export default function AdminPanel() {
 }
 
 // Função simples para exportação de relatório (substitua pela real depois)
-function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
+function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string, servicesArg?: Service[]) {
   // Considera apenas agendamentos já ocorridos
   const agsPassados = ags.filter(a => new Date(`${a.date}T${a.time}`) < new Date());
-  const services: Service[] = (window as any).adminServices || [];
+  // Usa services do React Query se disponível, senão window.adminServices
+  const services: Service[] = servicesArg || (window as any).adminServices || [];
   const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
   const locais = Array.from(new Set(agsPassados.map(getLocal))) as string[];
   const agsPorLocal = Object.fromEntries(locais.map(local => [local, agsPassados.filter(a => getLocal(a) === local)]));
@@ -1187,10 +1188,11 @@ function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
 }
 
 // Função para gerar relatório anual
-function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string) {
+function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string, servicesArg?: Service[]) {
   // Considera apenas agendamentos já ocorridos
   const agsPassados = ags.filter(a => new Date(`${a.date}T${a.time}`) < new Date());
-  const services: Service[] = (window as any).adminServices || [];
+  // Usa services do React Query se disponível, senão window.adminServices
+  const services: Service[] = servicesArg || (window as any).adminServices || [];
   const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
   const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const meses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
