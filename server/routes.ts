@@ -177,6 +177,15 @@ export function registerRoutes(app: any): Server {
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
+      // --- Validação de antecedência mínima de 8 horas ---
+      const TIMEZONE = "America/Bahia";
+      const nowBahia = toZonedTime(new Date(), TIMEZONE);
+      const agendamentoDateTime = new Date(`${validatedData.date}T${validatedData.time}:00-03:00`); // Assume horário Bahia
+      const diffMs = agendamentoDateTime.getTime() - nowBahia.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      if (diffHours < 8) {
+        return res.status(400).json({ message: "O agendamento deve ser feito com pelo menos 8 horas de antecedência." });
+      }
       // NÃO checa mais isTimeSlotAvailable, assume que só pode agendar se o slot está disponível
       const appointment = await storage.createAppointment(validatedData);
       // Marca o slot como indisponível

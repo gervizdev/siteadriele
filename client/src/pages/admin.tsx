@@ -839,6 +839,7 @@ export default function AdminPanel() {
                         <div className="flex items-center space-x-3">
                           <Clock className="text-deep-rose h-5 w-5" />
                           <span className="font-medium">{slot.time}</span>
+                          <span className="font-medium text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded">{slot.local}</span>
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               slot.isAvailable
@@ -1100,10 +1101,12 @@ export default function AdminPanel() {
 
 // Função simples para exportação de relatório (substitua pela real depois)
 function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
+  // Considera apenas agendamentos já ocorridos
+  const agsPassados = ags.filter(a => new Date(`${a.date}T${a.time}`) < new Date());
   const services: Service[] = (window as any).adminServices || [];
   const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
-  const locais = Array.from(new Set(ags.map(getLocal))) as string[];
-  const agsPorLocal = Object.fromEntries(locais.map(local => [local, ags.filter(a => getLocal(a) === local)]));
+  const locais = Array.from(new Set(agsPassados.map(getLocal))) as string[];
+  const agsPorLocal = Object.fromEntries(locais.map(local => [local, agsPassados.filter(a => getLocal(a) === local)]));
 
   // Função para calcular métricas por local
   function getMetricaLocal(agsLocal: Appointment[]) {
@@ -1134,10 +1137,10 @@ function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
       [local.charAt(0).toUpperCase() + local.slice(1)]: getMetricaLocal(agsLocal)
     };
   });
-  const totalObj = { TOTAL: getMetricaLocal(ags) };
+  const totalObj = { TOTAL: getMetricaLocal(agsPassados) };
   const allLocais = [...resumoPorLocal, totalObj];
   // Transpor: cada métrica vira linha, cada local/total vira coluna
-  const metricaKeys = Object.keys(getMetricaLocal(ags));
+  const metricaKeys = Object.keys(getMetricaLocal(agsPassados));
   const header = ['Métrica', ...allLocais.map(obj => Object.keys(obj)[0])];
   const data = metricaKeys.map(key => [key, ...allLocais.map(obj => (Object.values(obj)[0] as any)[key])]);
   const wsResumo = XLSX.utils.aoa_to_sheet([header, ...data]);
@@ -1185,11 +1188,13 @@ function gerarRelatorioMensalXLSX(ags: Appointment[], selectedMonth: string) {
 
 // Função para gerar relatório anual
 function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string) {
+  // Considera apenas agendamentos já ocorridos
+  const agsPassados = ags.filter(a => new Date(`${a.date}T${a.time}`) < new Date());
   const services: Service[] = (window as any).adminServices || [];
   const getLocal = (a: Appointment) => (services.find(s => s.id === a.serviceId)?.local || 'Não informado').toLowerCase();
   const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const meses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
-  const locais = Array.from(new Set(ags.map(getLocal))) as string[];
+  const locais = Array.from(new Set(agsPassados.map(getLocal))) as string[];
   function getMetricaLocal(agsLocal: Appointment[]): { [key: string]: string | number } {
     const total = agsLocal.length;
     const faltaram = agsLocal.filter(a => a.clientShowedUp === false).length;
@@ -1211,7 +1216,7 @@ function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string) {
     };
   }
   // Cabeçalho: Métrica | ...
-  const metricaKeys = Object.keys(getMetricaLocal(ags));
+  const metricaKeys = Object.keys(getMetricaLocal(agsPassados));
   // Para cada mês, para cada local, calcula as métricas
   const header = ['Mês/Local', ...locais.map(local => local.charAt(0).toUpperCase() + local.slice(1)), 'TOTAL'];
   // Para cada mês, gera uma linha com as métricas de cada local e o total
@@ -1220,11 +1225,11 @@ function gerarRelatorioAnualXLSX(ags: Appointment[], selectedYear: string) {
     metricaKeys.forEach((key, i) => {
       const row = [`${mesesNomes[idx]} - ${key}`];
       locais.forEach(local => {
-        const agsLocalMes = ags.filter(a => getLocal(a) === local && a.date.slice(5,7) === mes);
+        const agsLocalMes = agsPassados.filter(a => getLocal(a) === local && a.date.slice(5,7) === mes);
         row.push((getMetricaLocal(agsLocalMes) as any)[key]);
       });
       // Total do mês (todos locais)
-      const agsMes = ags.filter(a => a.date.slice(5,7) === mes);
+      const agsMes = agsPassados.filter(a => a.date.slice(5,7) === mes);
       row.push((getMetricaLocal(agsMes) as any)[key]);
       (data as any[][]).push(row);
     });

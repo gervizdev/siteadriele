@@ -20,3 +20,6 @@ primary_region = 'gig'
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
+
+[env]
+  TZ = "America/Bahia"
