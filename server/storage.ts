@@ -141,7 +141,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAppointment(id: number): Promise<void> {
-    console.log("Deletando agendamento id:", id);
     const result = await db.delete(appointments).where(eq(appointments.id, id));
     // Verifica se algum registro foi removido
     if (result.rowCount !== undefined && result.rowCount === 0) {

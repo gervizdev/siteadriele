@@ -393,9 +393,6 @@ export default function AdminPanel() {
     .filter(a => new Date(`${a.date}T${a.time}`) >= new Date())
     .filter(a => a.clientName.toLowerCase().includes(searchName.toLowerCase()));
 
-  console.log('DEBUG appointments:', appointments, 'selectedMonth:', selectedMonth, 'filtro:', (appointments||[]).map(a => ({date: a.date, time: a.time, slice: a.date?.slice(0,7), isPast: new Date(`${a.date}T${a.time}`) < new Date()})));
-  console.log('DEBUG filtro final:', (appointments||[]).filter(a => a.date.slice(0, 7) === selectedMonth && new Date(`${a.date}T${a.time}`) < new Date()));
-
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}

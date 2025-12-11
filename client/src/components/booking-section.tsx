@@ -209,15 +209,10 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
 
   useEffect(() => {
-  console.log("MP useEffect triggered. waitingPayment:", waitingPayment, "preferenceId:", preferenceId, "MP SDK:", typeof (window as any).MercadoPago);
   if (waitingPayment && preferenceId && (window as any).MercadoPago) {
-    console.log("MP useEffect: Conditions met. Initializing Brick.");
     const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || process.env.MERCADOPAGO_PUBLIC_KEY;
-    console.log("Using MP Public Key:", mpPublicKey);
 
     if (!mpPublicKey) {
-        console.error("Mercado Pago Public Key is MISSING!");
-          
         setWaitingPayment(false);
         setPreferenceId(null);
         return;
@@ -226,17 +221,14 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     try {
       const mp = new (window as any).MercadoPago(mpPublicKey, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
-      console.log("MP Bricks Builder created.");
 
-      const walletContainerElement = document.getElementById("wallet_container"); // Renomeado para evitar conflito com a variável de string
+      const walletContainerElement = document.getElementById("wallet_container");
       if (!walletContainerElement) {
-        console.error("MP useEffect: 'wallet_container' DIV NOT FOUND!");
         toast({ title: "Erro na UI", description: "Container do pagamento não encontrado.", variant: "destructive"});
         setWaitingPayment(false);
         setPreferenceId(null);
         return;
       }
-      console.log("MP useEffect: 'wallet_container' found.", walletContainerElement);
 
       bricksBuilder.create("wallet", "wallet_container", {
         initialization: {
@@ -248,41 +240,26 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
             }
         },
         callbacks: {
-          onReady: () => {
-            console.log("MP Brick: onReady - Brick está pronto.");
-            // Scroll removido daqui para evitar rolagem dupla
-          },
-          onSubmit: () => { console.log("MP Brick: onSubmit - Usuário submeteu o pagamento."); },
+          onReady: () => {},
+          onSubmit: () => {},
           onError: (error: any) => {
-            console.error("MP Brick: onError callback:", error);
             toast({ title: "Erro no pagamento MP", description: error.message || "Ocorreu um erro com o Mercado Pago.", variant: "destructive" });
             setWaitingPayment(false);
             setPreferenceId(null);
           }
         }
-      }).then(() => {
-        console.log("MP Brick .create() promise RESOLVED.");
       }).catch((error: any) => {
-        console.error("MP Brick .create() promise REJECTED:", error);
         toast({ title: "Erro ao carregar módulo de pagamento", description: error.message || "Falha ao iniciar o componente de pagamento.", variant: "destructive"});
         setWaitingPayment(false);
         setPreferenceId(null);
       });
-      console.log("MP Brick .create() called.");
     } catch (brickError: any) {
-        console.error("Error initializing MP Brick (outer try-catch):", brickError);
         toast({ title: "Erro Crítico no Pagamento", description: brickError.message || "Não foi possível carregar a interface de pagamento.", variant: "destructive"});
         setWaitingPayment(false);
         setPreferenceId(null);
     }
-  } else {
-    if (waitingPayment && preferenceId && !(window as any).MercadoPago) {
-        console.warn("MP useEffect: Attempting to init Brick, but MercadoPago SDK not found on window!");
-    } else if (waitingPayment && !preferenceId) {
-        console.warn("MP useEffect: waitingPayment is true, but preferenceId is missing.");
-    }
   }
-}, [waitingPayment, preferenceId, toast]); // As dependências estão corretas
+}, [waitingPayment, preferenceId, toast]);
   const handleBookingSubmit = async (data: BookingFormData) => {
     const isAdiantamento = hasCiliosIrece;
     const finalBookingData = {
