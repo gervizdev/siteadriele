@@ -8,6 +8,7 @@ export default function PaymentPage() {
   const [location, setLocation] = useLocation();
   const [waitingPayment, setWaitingPayment] = useState(true);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{qr_code: string, qr_code_base64: string, payment_id: string} | null>(() => {
     try {
       const data = sessionStorage.getItem("pixData");
@@ -42,6 +43,18 @@ export default function PaymentPage() {
   const valorAdiantamentoComTaxa = bookingData?.valorAdiantamentoComTaxa;
   const valorLiquidoDesejado = bookingData?.valorLiquidoDesejado;
   const taxaCartao = bookingData?.taxaCartao;
+
+  // Busca a public key do Mercado Pago do servidor
+  useEffect(() => {
+    fetch("/api/config/mp-public-key")
+      .then(res => res.json())
+      .then(data => {
+        if (data.publicKey) {
+          setMpPublicKey(data.publicKey);
+        }
+      })
+      .catch(err => console.error("Erro ao buscar MP public key:", err));
+  }, []);
 
   useEffect(() => {
     if (!bookingData) {
@@ -78,8 +91,7 @@ export default function PaymentPage() {
   }, [bookingData, setLocation]);
 
   useEffect(() => {
-    if (waitingPayment && preferenceId && (window as any).MercadoPago) {
-      const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || (window as any).MERCADOPAGO_PUBLIC_KEY;
+    if (waitingPayment && preferenceId && mpPublicKey && (window as any).MercadoPago) {
       const mp = new (window as any).MercadoPago(mpPublicKey, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
       const walletContainerElement = document.getElementById("wallet_container");
@@ -95,7 +107,7 @@ export default function PaymentPage() {
         },
       });
     }
-  }, [waitingPayment, preferenceId]);
+  }, [waitingPayment, preferenceId, mpPublicKey]);
 
   // Sempre que gerar Pix, salva no sessionStorage
   const handlePix = async () => {

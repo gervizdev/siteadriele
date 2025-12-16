@@ -78,6 +78,15 @@ async function sendTelegramToAdmin(message: string) {
 
 // ATENÇÃO: Tipagem 'any' para evitar conflito de sobrecarga do Express com handlers async no TypeScript
 export function registerRoutes(app: any): Server {
+  // Endpoint para retornar a public key do Mercado Pago (para o frontend)
+  app.get("/api/config/mp-public-key", (_req: Request, res: Response) => {
+    const publicKey = process.env.MERCADOPAGO_PUBLIC_KEY || process.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+    if (!publicKey) {
+      return res.status(500).json({ message: "MERCADOPAGO_PUBLIC_KEY not configured" });
+    }
+    res.json({ publicKey });
+  });
+
   // Get all services
   app.get("/api/services", async (req: Request, res: Response) => {
     try {

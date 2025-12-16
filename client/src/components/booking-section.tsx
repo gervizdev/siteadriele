@@ -85,7 +85,20 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   const { toast } = useToast();
   const [waitingPayment, setWaitingPayment] = useState(false);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [, navigate] = useLocation();
+
+  // Busca a public key do Mercado Pago do servidor
+  useEffect(() => {
+    fetch("/api/config/mp-public-key")
+      .then(res => res.json())
+      .then(data => {
+        if (data.publicKey) {
+          setMpPublicKey(data.publicKey);
+        }
+      })
+      .catch(err => console.error("Erro ao buscar MP public key:", err));
+  }, []);
 
   const { data: services, isLoading: servicesLoading } = useQuery<Service[]>({
     queryKey: ["/api/services"],
@@ -209,15 +222,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
 
   useEffect(() => {
-  if (waitingPayment && preferenceId && (window as any).MercadoPago) {
-    const mpPublicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || process.env.MERCADOPAGO_PUBLIC_KEY;
-
-    if (!mpPublicKey) {
-        setWaitingPayment(false);
-        setPreferenceId(null);
-        return;
-    }
-
+  if (waitingPayment && preferenceId && mpPublicKey && (window as any).MercadoPago) {
     try {
       const mp = new (window as any).MercadoPago(mpPublicKey, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
@@ -259,7 +264,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
         setPreferenceId(null);
     }
   }
-}, [waitingPayment, preferenceId, toast]);
+}, [waitingPayment, preferenceId, mpPublicKey, toast]);
   const handleBookingSubmit = async (data: BookingFormData) => {
     const isAdiantamento = hasCiliosIrece;
     const finalBookingData = {
