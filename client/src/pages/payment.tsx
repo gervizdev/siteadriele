@@ -62,12 +62,12 @@ export default function PaymentPage() {
       return;
     }
     // Chama backend para criar preferência Mercado Pago
+    // NOTA: O valor do adiantamento é definido no backend (R$ 31,58 cartão)
     fetch("/api/pagamento", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: `Adiantamento Agendamento: ${bookingData.serviceName}`,
-        price: 3000,
         quantity: 1,
         payer: {
           name: bookingData.clientName,
@@ -131,7 +131,7 @@ export default function PaymentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: 30.00,
+          // NOTA: O valor do Pix é definido no backend (R$ 30,00)
           description: `Adiantamento Agendamento: ${bookingData.serviceName}`,
           payer, // nunca inclui phone
           bookingData // <-- envia bookingData para o backend

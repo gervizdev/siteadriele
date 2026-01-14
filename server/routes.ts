@@ -525,7 +525,9 @@ export function registerRoutes(app: any): Server {
 
   // Rota para criar preferência de pagamento Mercado Pago (nova rota)
   app.post("/api/pagamento", async (req: Request, res: Response) => {
-    let { title, price, quantity, payer, bookingData } = req.body;
+    let { title, quantity, payer, bookingData } = req.body;
+    // SEGURANÇA: Ignora qualquer valor de price enviado pelo frontend!
+    // O valor do adiantamento é SEMPRE FIXO: R$ 31,58 (cartão com taxa)
 
     if (!payer || !payer.email || typeof payer.email !== 'string' || payer.email.trim() === "") {
       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP sem email do pagador válido. Payer recebido:", payer);
@@ -537,8 +539,8 @@ export function registerRoutes(app: any): Server {
       console.error("BACKEND VALIDATION: Tentativa de criar preferência MP com email do pagador mal formatado:", payer.email);
       return res.status(400).json({ error: "O formato do email do pagador é inválido." });
     }
-    // Validação básica dos dados recebidos (adapte conforme necessidade)
-    if (!title || typeof price !== 'number' || price <= 0 || typeof quantity !== 'number' || quantity <= 0 || !payer || !payer.email) {
+    // Validação básica dos dados recebidos
+    if (!title || typeof quantity !== 'number' || quantity <= 0 || !payer || !payer.email) {
       return res.status(400).json({ error: "Dados inválidos para criar preferência de pagamento." });
     }
     if (!mpAccessToken) { // Verifica novamente se o token está carregado
@@ -546,22 +548,17 @@ export function registerRoutes(app: any): Server {
       return res.status(500).json({ error: "Configuração do servidor de pagamento incompleta."});
     }
 
-    try {    // Ajuste para repassar taxa do cartão ao cliente (apenas para adiantamento cílios/Irecê)
-      // Considera que price está em centavos (ex: 3000 = R$ 30,00)
-      const isCiliosIrece = bookingData?.local?.toLowerCase() === "irecê" && bookingData?.serviceName?.toLowerCase().includes("cílios");
-      const isAdiantamento = title?.toLowerCase().includes("adiantamento");
-      // Taxa Mercado Pago padrão cartão: 4,97% (0,0497)
+    try {
+      // SEGURANÇA: Valor do adiantamento é SEMPRE FIXO no backend!
+      // Pix: R$ 30,00 | Cartão: R$ 31,58 (com taxa de 4,97%)
+      // Esta rota é para pagamento via cartão/wallet, então usa R$ 31,58
       const TAXA_CARTAO = 0.0497;
-      // Ajuste: valor fixo do adiantamento com taxa para cartão (R$ 31,58)
-      // Taxa Mercado Pago padrão cartão: 4,97% (0,0497)
-      // Para receber R$ 30,00 líquidos: 30 / 0.9503 = 31,58 (arredondado)
       const VALOR_ADIANTAMENTO_CARTAO = 3158; // em centavos (R$ 31,58)
-      if (isCiliosIrece && isAdiantamento) {
-        price = VALOR_ADIANTAMENTO_CARTAO;
-        bookingData.valorAdiantamentoComTaxa = VALOR_ADIANTAMENTO_CARTAO;
-        bookingData.valorLiquidoDesejado = 3000;
-        bookingData.taxaCartao = TAXA_CARTAO;
-      }
+      let price = VALOR_ADIANTAMENTO_CARTAO; // Valor FIXO, ignora frontend!
+      
+      bookingData.valorAdiantamentoComTaxa = VALOR_ADIANTAMENTO_CARTAO;
+      bookingData.valorLiquidoDesejado = 3000;
+      bookingData.taxaCartao = TAXA_CARTAO;
 
       // Determina categoria e descrição do serviço para o Mercado Pago
       const categoryId = bookingData?.category_id || bookingData?.category || 'services'; // fallback para 'services'
