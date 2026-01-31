@@ -1,53 +1,6 @@
 # 💅 Adriele Lash - Sistema de Agendamento Online
 
-Sistema de agendamento para estúdio de estética com pagamento via **PIX 
-Secret details
-Secret validity
-
-Valid
-Connection_uri
-
-postgresql://postgres.xusepsmhmytfnwmbvplc:WgfYshOS7GVia3rp@aws-0-sa-east-1.pooler.supabase.com:6543/postgres
-
-
-Scheme
-
-postgresql
-
-
-Username
-
-postgres.xusepsmhmytfnwmbvplc
-
-
-Password
-
-WgfYshOS7GVia3rp
-
-
-Host
-
-aws-0-sa-east-1.pooler.supabase.com
-
-
-Port
-
-6543
-
-
-Database
-
-postgres
-
-
-Secret analyzer
-gervizdev/adrieleLash.Site
-
-4b665d4
-.env
-@@ -0,0 +1 @@
-DATABASE_URL=postgresql://postgres.xusepsmhmytfnwmbvplc:WgfYshOS7GVia3rp@aws-0-sa-east-1.pooler.supabase.com:6543/postgres
- No newline at end of file(Mercado Pago)** e notificações via **Telegram**.
+Sistema de agendamento para estúdio de estética com pagamento via **PIX (Mercado Pago)** e notificações via **Telegram**.
 
 🔗 **Em produção:** [adrielelash-site.fly.dev](https://adrielelash-site.fly.dev)
 
