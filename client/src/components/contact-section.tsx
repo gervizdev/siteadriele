@@ -103,7 +103,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <p className="font-semibold">Telefone</p>
-                  <p className="text-gray-300">(74) 98811-7722</p>
+                  <p className="text-gray-300">(74) 99918-1696</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -128,7 +128,7 @@ export default function ContactSection() {
                   <Instagram className="text-white h-6 w-6" />
                 </a>
                 <a 
-                  href="https://wa.me/5574988117722" 
+                  href="https://wa.me/5574999181696" 
                   className="bg-rose-primary p-3 rounded-full hover:bg-rose-gold transition-colors"
                   aria-label="WhatsApp"
                 >

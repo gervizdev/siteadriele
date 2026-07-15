@@ -277,7 +277,7 @@ export function registerRoutes(app: any): Server {
           `*Horário:* ${appointment.time}\n` +
           `*Local:* ${(service?.local || '-') }\n` +
           `*Nome:* ${appointment.clientName}`;
-        const whatsappUrl = `https://wa.me/5574988117722?text=${encodeURIComponent(msg)}`;
+        const whatsappUrl = `https://wa.me/5574999181696?text=${encodeURIComponent(msg)}`;
         return res.status(403).json({
           message: "O cancelamento de agendamentos de cílios em Irecê só pode ser feito via WhatsApp. Clique em OK para ser redirecionado.",
           whatsappUrl

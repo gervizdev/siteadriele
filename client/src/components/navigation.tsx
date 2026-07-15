@@ -85,7 +85,7 @@ export default function Navigation() {
                 Painel Administrativo
               </a>
               <a
-                href="https://wa.me/5574988117722?text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20os%20servi%C3%A7os."
+                href="https://wa.me/5574999181696?text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20os%20servi%C3%A7os."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-rose-primary text-white px-4 py-2 rounded-full font-semibold shadow hover:bg-rose-gold transition-colors"
@@ -148,7 +148,7 @@ export default function Navigation() {
                 Painel Administrativo
               </a>
               <a
-                href="https://wa.me/5574988117722?text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20os%20servi%C3%A7os."
+                href="https://wa.me/5574999181696?text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20os%20servi%C3%A7os."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center mt-2 bg-rose-primary text-white px-4 py-2 rounded-full font-semibold shadow hover:bg-rose-gold transition-colors"
