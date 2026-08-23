@@ -11,6 +11,7 @@ import type { Service } from "@shared/schema";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { useLocation } from "wouter";
 import { QuestionMarkIcon } from "./ui/question-mark-icon";
+import { MapPin } from "lucide-react";
 
 const bookingSchema = z.object({
   serviceId: z.number().min(1, "Por favor, selecione um serviço"),
@@ -87,6 +88,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
   const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [, navigate] = useLocation();
+  const [showIrecePopup, setShowIrecePopup] = useState(false);
 
   // Busca a public key do Mercado Pago do servidor
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       isFirstTime: false,
       notes: "",
       local: "",
-      serviceId: 0, 
+      serviceId: 0,
       serviceName: "",
       servicePrice: 0,
     },
@@ -225,49 +227,49 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
 
 
   useEffect(() => {
-  if (waitingPayment && preferenceId && mpPublicKey && (window as any).MercadoPago) {
-    try {
-      const mp = new (window as any).MercadoPago(mpPublicKey, { locale: "pt-BR" });
-      const bricksBuilder = mp.bricks();
+    if (waitingPayment && preferenceId && mpPublicKey && (window as any).MercadoPago) {
+      try {
+        const mp = new (window as any).MercadoPago(mpPublicKey, { locale: "pt-BR" });
+        const bricksBuilder = mp.bricks();
 
-      const walletContainerElement = document.getElementById("wallet_container");
-      if (!walletContainerElement) {
-        toast({ title: "Erro na UI", description: "Container do pagamento não encontrado.", variant: "destructive"});
-        setWaitingPayment(false);
-        setPreferenceId(null);
-        return;
-      }
-
-      bricksBuilder.create("wallet", "wallet_container", {
-        initialization: {
-          preferenceId: preferenceId,
-        },
-        customization: {
-            visual: {
-               
-            }
-        },
-        callbacks: {
-          onReady: () => {},
-          onSubmit: () => {},
-          onError: (error: any) => {
-            toast({ title: "Erro no pagamento MP", description: error.message || "Ocorreu um erro com o Mercado Pago.", variant: "destructive" });
-            setWaitingPayment(false);
-            setPreferenceId(null);
-          }
+        const walletContainerElement = document.getElementById("wallet_container");
+        if (!walletContainerElement) {
+          toast({ title: "Erro na UI", description: "Container do pagamento não encontrado.", variant: "destructive" });
+          setWaitingPayment(false);
+          setPreferenceId(null);
+          return;
         }
-      }).catch((error: any) => {
-        toast({ title: "Erro ao carregar módulo de pagamento", description: error.message || "Falha ao iniciar o componente de pagamento.", variant: "destructive"});
+
+        bricksBuilder.create("wallet", "wallet_container", {
+          initialization: {
+            preferenceId: preferenceId,
+          },
+          customization: {
+            visual: {
+
+            }
+          },
+          callbacks: {
+            onReady: () => { },
+            onSubmit: () => { },
+            onError: (error: any) => {
+              toast({ title: "Erro no pagamento MP", description: error.message || "Ocorreu um erro com o Mercado Pago.", variant: "destructive" });
+              setWaitingPayment(false);
+              setPreferenceId(null);
+            }
+          }
+        }).catch((error: any) => {
+          toast({ title: "Erro ao carregar módulo de pagamento", description: error.message || "Falha ao iniciar o componente de pagamento.", variant: "destructive" });
+          setWaitingPayment(false);
+          setPreferenceId(null);
+        });
+      } catch (brickError: any) {
+        toast({ title: "Erro Crítico no Pagamento", description: brickError.message || "Não foi possível carregar a interface de pagamento.", variant: "destructive" });
         setWaitingPayment(false);
         setPreferenceId(null);
-      });
-    } catch (brickError: any) {
-        toast({ title: "Erro Crítico no Pagamento", description: brickError.message || "Não foi possível carregar a interface de pagamento.", variant: "destructive"});
-        setWaitingPayment(false);
-        setPreferenceId(null);
+      }
     }
-  }
-}, [waitingPayment, preferenceId, mpPublicKey, toast]);
+  }, [waitingPayment, preferenceId, mpPublicKey, toast]);
   const handleBookingSubmit = async (data: BookingFormData) => {
     const isAdiantamento = hasCiliosIrece;
     const finalBookingData = {
@@ -292,9 +294,9 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
       // Validação antes de criar
       if (Object.values(selectedServices).filter(Boolean).length === 0) {
         toast({
-            title: "Nenhum serviço selecionado",
-            description: "Por favor, selecione pelo menos um serviço.",
-            variant: "destructive",
+          title: "Nenhum serviço selecionado",
+          description: "Por favor, selecione pelo menos um serviço.",
+          variant: "destructive",
         });
         const serviceSelect = document.getElementById('servico-combobox');
         if (serviceSelect) serviceSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -365,8 +367,8 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
     trigger("time");
     // Rola para os dados do cliente após selecionar o horário
     setTimeout(() => {
-        const el = document.getElementById('dados-cliente');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = document.getElementById('dados-cliente');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
   };
 
@@ -500,15 +502,17 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     type="button"
                     key={local}
                     disabled={isEditing} // Desabilita mudança de local durante edição
-                    className={`flex-1 border-2 rounded-xl p-4 text-center font-semibold transition-all ${
-                      selectedLocal === local
-                        ? "border-rose-primary bg-rose-primary/10 text-rose-primary"
-                        : "border-gray-200 hover:border-rose-primary"
-                    } ${isEditing ? "cursor-not-allowed opacity-70" : ""}`}
+                    className={`flex-1 border-2 rounded-xl p-4 text-center font-semibold transition-all ${selectedLocal === local
+                      ? "border-rose-primary bg-rose-primary/10 text-rose-primary"
+                      : "border-gray-200 hover:border-rose-primary"
+                      } ${isEditing ? "cursor-not-allowed opacity-70" : ""}`}
                     onClick={() => {
-                      if(isEditing) return;
+                      if (isEditing) return;
                       setSelectedLocal(local);
                       setValue("local", local, { shouldValidate: true });
+                      if (local.toLowerCase() === "irecê") {
+                        setShowIrecePopup(true);
+                      }
                       // Limpar seleções de serviço e horário anteriores ao mudar de local
                       setSelectedServices({});
                       setSelectedService(null);
@@ -539,7 +543,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
             {/* Serviços */}
             {selectedLocal && (servicesLoading ? (
               <div className="grid md:grid-cols-3 gap-4 mb-8 animate-pulse">
-                {[1, 2, 3].map((i) => ( <div key={i} className="bg-gray-200 h-24 rounded-xl"></div> ))}
+                {[1, 2, 3].map((i) => (<div key={i} className="bg-gray-200 h-24 rounded-xl"></div>))}
               </div>
             ) : groupedServices && Object.keys(groupedServices).length > 0 ? (
               <div className="mt-8" id="servico-combobox">
@@ -563,7 +567,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                             if (allCombos[currentIdx + 1]) {
                               allCombos[currentIdx + 1].focus();
                               allCombos[currentIdx + 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            } else if (Object.values(selectedServices).some(s => s !== null) || (service !== null && service !== undefined) ) {
+                            } else if (Object.values(selectedServices).some(s => s !== null) || (service !== null && service !== undefined)) {
                               const calendarEl = document.getElementById('calendar-booking');
                               if (calendarEl) calendarEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
@@ -584,7 +588,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     </div>
                   ))}
                 </div>
-                 {errors.serviceId && Object.values(selectedServices).filter(Boolean).length === 0 && (
+                {errors.serviceId && Object.values(selectedServices).filter(Boolean).length === 0 && (
                   <p className="text-red-600 text-sm mt-2">{errors.serviceId.message}</p>
                 )}
               </div>
@@ -635,7 +639,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                 )}
                 {timesLoading || loadingAppointments ? (
                   <div className="animate-pulse grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {[1,2,3,4].map(i => <div key={i} className="h-12 bg-gray-200 rounded-xl"></div>)}
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-gray-200 rounded-xl"></div>)}
                   </div>
                 ) : availableTimes && availableTimes.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -679,7 +683,7 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     })}
                   </div>
                 ) : (
-                    <p className="text-gray-600 text-center py-4">Nenhum horário disponível nesse local para esta data. Por favor, selecione outra data.</p>
+                  <p className="text-gray-600 text-center py-4">Nenhum horário disponível nesse local para esta data. Por favor, selecione outra data.</p>
                 )}
                 {errors.time && <p className="mt-2 text-red-500 text-sm">{errors.time.message}</p>}
               </div>
@@ -758,15 +762,15 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                     <p><span className="font-semibold">Data:</span> {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "N/A"}</p>
                     <p><span className="font-semibold">Horário:</span> {getTimeInterval(selectedTime, Object.values(selectedServices).filter(Boolean).length, possibleTimes) || "N/A"}</p>
                     <p className="text-base font-semibold mt-3">
-                        <span className="font-semibold">Preço Total: </span>
-                        {hasCiliosIrece ? (
-                            <>
-                            R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}
-                            <span className="text-xs block">(Será cobrado um adiantamento de R$ {getValorAdiantamentoComTaxa(editData)}. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
-                            </>
-                        ) : (
-                            `R$ ${(totalPrice / 100).toFixed(2).replace('.', ',')}`
-                        )}
+                      <span className="font-semibold">Preço Total: </span>
+                      {hasCiliosIrece ? (
+                        <>
+                          R$ {(totalPrice / 100).toFixed(2).replace('.', ',')}
+                          <span className="text-xs block">(Será cobrado um adiantamento de R$ {getValorAdiantamentoComTaxa(editData)}. Restante de R$ {((totalPrice - 3000) / 100).toFixed(2).replace('.', ',')} a pagar no local)</span>
+                        </>
+                      ) : (
+                        `R$ ${(totalPrice / 100).toFixed(2).replace('.', ',')}`
+                      )}
                     </p>
                     {hasCiliosIrece && (
                       <div className="!mt-4 p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-start gap-2">
@@ -794,6 +798,41 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
           </form>
         </div>
       </div>
+      {/* POPUP DE AVISO DE ENDEREÇO DE IRECÊ */}
+      {showIrecePopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 text-center relative animate-in fade-in zoom-in-95 duration-200">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600 mb-4">
+              <MapPin className="h-7 w-7" />
+            </div>
+
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              📍 Novo Endereço em Irecê!
+            </h3>
+
+            <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              Passando para avisar que agora estou atendendo no novo endereço em Irecê: Rua Xique-Xique, 82.
+            </p>
+            <div className="flex flex-col gap-3 mt-4 w-full">
+              <a
+                href="https://www.google.com/maps/dir/?api=1&destination=-11.305917,-41.870889&travelmode=driving"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-3 text-sm font-bold text-white shadow-md transition-colors cursor-pointer"
+              >
+                📍 Ver localização no Google Maps
+              </a>
+
+              <button
+                onClick={() => setShowIrecePopup(false)}
+                className="w-full bg-rose-primary hover:bg-rose-600 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-md cursor-pointer"
+              >
+                Entendi.
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

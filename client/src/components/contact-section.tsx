@@ -23,7 +23,6 @@ type ContactFormData = z.infer<typeof contactSchema>;
 export default function ContactSection() {
   const { toast } = useToast();
   const [rating, setRating] = useState(0);
-  const ireceLocation = "-11.305917,-41.870889";
 
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -81,12 +80,12 @@ export default function ContactSection() {
                     Bairro Fundação Bradesco, próximo a escola<br />
                   </p>
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${ireceLocation}&travelmode=driving`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=-11.305917,-41.870889&travelmode=driving`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex mt-3 items-center rounded-full bg-rose-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-gold"
                   >
-                    Como chegar
+                    Como chegar ?
                   </a>
                 </div>
               </div>
@@ -107,7 +106,7 @@ export default function ContactSection() {
                     rel="noopener noreferrer"
                     className="inline-flex mt-3 items-center rounded-full bg-rose-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-gold"
                   >
-                    Como chegar
+                    Como chegar ?
                   </a>
                 </div>
               </div>
