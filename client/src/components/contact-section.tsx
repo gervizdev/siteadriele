@@ -23,6 +23,7 @@ type ContactFormData = z.infer<typeof contactSchema>;
 export default function ContactSection() {
   const { toast } = useToast();
   const [rating, setRating] = useState(0);
+  const ireceLocation = "-11.305917,-41.870889";
 
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -76,12 +77,17 @@ export default function ContactSection() {
                 <div>
                   <p className="font-semibold">Endereço Irecê</p>
                   <p className="text-gray-300">
-                    Avenida Primeiro de Janeiro, nº 400<br />
-                    Apartamento <br />
-                    Em frente à Cuscuzeira Maria Bonita<br />
-                    Ao lado do Posto KF<br />
-                    
+                    Rua Xique Xique, nº 82<br />
+                    Bairro Fundação Bradesco, próximo a escola<br />
                   </p>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${ireceLocation}&travelmode=driving`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex mt-3 items-center rounded-full bg-rose-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-gold"
+                  >
+                    Como chegar
+                  </a>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -95,6 +101,14 @@ export default function ContactSection() {
                     Casa<br />
                     Portão marrom e cerâmica na frente
                   </p>
+                  <a
+                    href="https://www.google.com/maps/dir/?api=1&destination=-11.334645295300893,-41.9965138402122&travelmode=driving"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex mt-3 items-center rounded-full bg-rose-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-gold"
+                  >
+                    Como chegar
+                  </a>
                 </div>
               </div>
               <div className="flex items-center space-x-4">

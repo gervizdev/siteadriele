@@ -36,6 +36,20 @@ npm run db:push
 npm run dev
 ```
 
+## Banco de teste no Supabase
+
+Use a string de conexão do banco do Supabase em `DATABASE_URL`.
+
+Exemplo genérico:
+
+```bash
+DATABASE_URL=postgresql://postgres:<SUA_SENHA>@db.<SEU_PROJECT_REF>.supabase.co:5432/postgres?sslmode=require
+```
+
+Também é aceito `SUPABASE_DATABASE_URL`.
+
+Depois de preencher o `.env`, rode `npm run db:push` para criar as tabelas definidas em `shared/schema.ts`.
+
 ---
 
 ## Autor

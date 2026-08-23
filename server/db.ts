@@ -1,12 +1,19 @@
+import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from "../shared/schema.js";
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DATABASE_URL;
+
+if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "DATABASE_URL or SUPABASE_DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const ssl = databaseUrl.includes("supabase.co")
+  ? { rejectUnauthorized: false }
+  : undefined;
+
+export const pool = new Pool({ connectionString: databaseUrl, ssl });
 export const db = drizzle({ client: pool, schema });
