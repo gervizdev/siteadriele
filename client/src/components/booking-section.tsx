@@ -219,6 +219,9 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
   const hasCiliosIrece = Object.values(selectedServices).some(
     s => s && s.category === "cílios" && s.local?.toLowerCase() === "irecê"
   );
+  const mapsDestination = selectedLocal?.toLowerCase() === "campo formoso"
+    ? "https://www.google.com/maps/dir/?api=1&destination=-11.334645295300893,-41.9965138402122&travelmode=driving"
+    : "https://www.google.com/maps/dir/?api=1&destination=-11.305917,-41.870889&travelmode=driving";
 
 
   useEffect(() => {
@@ -741,7 +744,17 @@ export default function BookingSection({ editData, onEditFinish }: { editData?: 
                   <h3 className="text-xl font-playfair font-semibold text-charcoal mb-4">Resumo do Agendamento</h3>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-semibold">Serviços:</span> {Object.values(selectedServices).filter(Boolean).map(s => s?.name).join(", ") || "Nenhum"}</p>
-                    <p><span className="font-semibold">Local:</span> {selectedLocal ? selectedLocal.charAt(0).toUpperCase() + selectedLocal.slice(1) : "N/A"}</p>
+                    <p>
+                      <span className="font-semibold">Local:</span> {selectedLocal ? selectedLocal.charAt(0).toUpperCase() + selectedLocal.slice(1) : "N/A"}.{' '}
+                      <a
+                        href={mapsDestination}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        Como chegar?
+                      </a>
+                    </p>
                     <p><span className="font-semibold">Data:</span> {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "N/A"}</p>
                     <p><span className="font-semibold">Horário:</span> {getTimeInterval(selectedTime, Object.values(selectedServices).filter(Boolean).length, possibleTimes) || "N/A"}</p>
                     <p className="text-base font-semibold mt-3">

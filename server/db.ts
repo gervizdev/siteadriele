@@ -11,7 +11,9 @@ if (!databaseUrl) {
   );
 }
 
-const ssl = databaseUrl.includes("supabase.co")
+const isSupabaseConnection = databaseUrl.includes("supabase.co") || databaseUrl.includes("supabase.com");
+
+const ssl = isSupabaseConnection
   ? { rejectUnauthorized: false }
   : undefined;
 

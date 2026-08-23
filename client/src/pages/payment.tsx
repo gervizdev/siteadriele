@@ -38,6 +38,9 @@ export default function PaymentPage() {
   });
   const totalPrice = bookingData?.servicePrice || 0;
   const hasCiliosIrece = bookingData?.local?.toLowerCase() === "irecê" && bookingData?.serviceName?.toLowerCase().includes("cílios");
+  const mapsDestination = bookingData?.local?.toLowerCase() === "campo formoso"
+    ? "https://www.google.com/maps/dir/?api=1&destination=-11.334645295300893,-41.9965138402122&travelmode=driving"
+    : "https://www.google.com/maps/dir/?api=1&destination=-11.305917,-41.870889&travelmode=driving";
 
   // Calcula valor do adiantamento com taxa, se vier do backend
   const valorAdiantamentoComTaxa = bookingData?.valorAdiantamentoComTaxa;
@@ -216,7 +219,17 @@ export default function PaymentPage() {
           <h2 className="font-playfair text-3xl font-bold text-charcoal mb-4">Resumo do Agendamento</h2>
           <div className="mb-6 text-left mx-auto max-w-md">
             <p className="mb-2"><b>Serviços:</b> {bookingData.serviceName}</p>
-            <p className="mb-2"><b>Local:</b> {bookingData.local?.charAt(0).toUpperCase() + bookingData.local?.slice(1)}</p>
+            <p className="mb-2">
+              <b>Local:</b> {bookingData.local?.charAt(0).toUpperCase() + bookingData.local?.slice(1)}.{' '}
+              <a
+                href={mapsDestination}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Como chegar?
+              </a>
+            </p>
             <p className="mb-2"><b>Data:</b> {bookingData.date ? format(new Date(bookingData.date), "dd/MM/yyyy") : ""}</p>
             <p className="mb-2"><b>Horário:</b> {bookingData.time}</p>
             <p className="mb-2"><b>Cliente:</b> {bookingData.clientName} ({bookingData.clientEmail})</p>
