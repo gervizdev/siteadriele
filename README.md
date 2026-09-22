@@ -2,8 +2,7 @@
 
 Sistema de agendamento para estúdio de estética com pagamento via **PIX (Mercado Pago)** e notificações via **Telegram**.
 
-🔗 **Em produção:** [adrielelash](https://adrielelash-site.fly.dev)](https://adrielelash.com.br/)
-
+🔗 **Em produção:** [adrielelash.com.br](https://adrielelash.com.br/)
 ---
 
 ## Funcionalidades
